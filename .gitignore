@@ -1,0 +1,5 @@
+# OS cruft, anywhere in the tree
+.DS_Store
+
+# web/ has its own .gitignore for node_modules, .next, the generated
+# SQLite db, etc. — nested .gitignore files apply automatically.

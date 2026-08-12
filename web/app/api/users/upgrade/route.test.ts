@@ -165,4 +165,45 @@ describe('POST /api/users/upgrade', () => {
       expect(sqlText).not.toMatch(/tier\s*=\s*'premium'/i);
     }
   });
+
+  // Regression test for a real, already-shipped defect (found post-commit
+  // by soundwave's risk assessment): Stripe does NOT automatically copy a
+  // Checkout Session's top-level `metadata` onto the Subscription object it
+  // creates for `mode: 'subscription'` sessions — that only happens if
+  // `subscription_data.metadata` is explicitly passed at session-creation
+  // time. Without it, webhooks/stripe/route.ts's handleSubscriptionDeleted()
+  // (which reads subscription.metadata.firebase_uid exclusively, with no
+  // client_reference_id fallback) can never resolve a firebase_uid on
+  // `customer.subscription.deleted`, so tier never reverts to 'free' on
+  // cancellation — a silent, permanent premium-access leak. This test
+  // exercises the actual Checkout Session creation call directly (unlike
+  // the webhook route's own tests, which hand-construct payloads with
+  // metadata.firebase_uid already populated and so never caught this) and
+  // would have failed against the pre-fix code, where `subscription_data`
+  // was never passed to `stripe.checkout.sessions.create(...)` at all.
+  it('sets subscription_data.metadata.firebase_uid on the Checkout Session so the Subscription object itself carries firebase_uid (required for customer.subscription.deleted webhooks to resolve the user)', async () => {
+    const verifiedFirebaseUid = 'renter-uid-1';
+    const verifySessionCookieMock = vi.fn().mockResolvedValue({ uid: verifiedFirebaseUid });
+    const queryMock = vi.fn().mockResolvedValue({
+      rows: [{ firebase_uid: verifiedFirebaseUid, email: 'renter@example.com', stripe_customer_id: 'cus_existing' }],
+    });
+    const getPoolMock = vi.fn().mockReturnValue({ query: queryMock });
+    const { checkoutSessionsCreateMock } = mockStripeClient();
+    checkoutSessionsCreateMock.mockResolvedValue({ url: 'https://checkout.stripe.com/test-session' });
+
+    mockCookieStore('valid-signed-session-cookie');
+    vi.doMock('@/lib/firebaseAdmin', () => ({ verifySessionCookie: verifySessionCookieMock }));
+    vi.doMock('@/lib/pgClient', () => ({ getPool: getPoolMock }));
+
+    const { POST } = await import('./route');
+    const response = await POST();
+
+    expect(response.status).toBe(200);
+    expect(checkoutSessionsCreateMock).toHaveBeenCalledTimes(1);
+    const [checkoutSessionParams] = checkoutSessionsCreateMock.mock.calls[0] as [
+      { subscription_data?: { metadata?: Record<string, string> } },
+    ];
+    expect(checkoutSessionParams.subscription_data).toBeDefined();
+    expect(checkoutSessionParams.subscription_data?.metadata).toEqual({ firebase_uid: verifiedFirebaseUid });
+  });
 });

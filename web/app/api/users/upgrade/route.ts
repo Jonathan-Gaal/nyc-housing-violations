@@ -133,6 +133,16 @@ export async function POST() {
       success_url: `${origin}/account?upgrade=success`,
       cancel_url: `${origin}/account?upgrade=cancelled`,
       metadata: { firebase_uid: userRow.firebase_uid },
+      // Stripe does NOT copy a Checkout Session's own `metadata` onto the
+      // Subscription object it creates for `mode: 'subscription'` sessions —
+      // that only happens if `subscription_data.metadata` is explicitly set
+      // here. Without this, `customer.subscription.deleted` webhook events
+      // carry a Subscription with no `firebase_uid` in its metadata, so
+      // handleSubscriptionDeleted() can never resolve which user to revert
+      // to tier='free' on cancellation — a silent, permanent premium-access
+      // leak, contradicting spec 016's Edge Cases section. This is the fix
+      // for that defect (found post-commit by soundwave's risk assessment).
+      subscription_data: { metadata: { firebase_uid: userRow.firebase_uid } },
     });
 
     if (!checkoutSession.url) {

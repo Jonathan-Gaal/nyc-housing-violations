@@ -1,8 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import type { BuildingRow, ViolationRow } from "@/lib/queries";
 import { ratingTier, ratingLabel, humanizeDaysOpen } from "@/lib/format";
+
+// Chart.js is a heavy library — dynamically imported (ssr: false) so it's
+// only pulled into the client bundle once a building card is expanded, same
+// "heavy library, defer loading" treatment app/page.tsx already gives
+// MapView.tsx/Mapbox GL (specs/010-chartjs-violation-timeline.md).
+const ViolationTimeline = dynamic(() => import("@/components/ViolationTimeline"), {
+  ssr: false,
+});
 
 const TIER_STYLES: Record<string, { badge: string; ring: string }> = {
   excellent: { badge: "bg-emerald-100 text-emerald-800", ring: "ring-emerald-200" },
@@ -133,6 +142,9 @@ export default function BuildingCard({ building }: { building: BuildingRow }) {
             </div>
           )}
           {error && <p className="text-sm text-red-600">{error}</p>}
+          {!loading && !error && violations && violations.length > 0 && (
+            <ViolationTimeline violations={violations} />
+          )}
           {!loading &&
             !error &&
             Object.entries(byEntrance).map(([entrance, list]) => (

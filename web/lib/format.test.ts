@@ -2,22 +2,24 @@ import { describe, expect, it } from "vitest";
 import { ratingTier, ratingLabel, humanizeDaysOpen } from "./format";
 
 describe("ratingTier / ratingLabel", () => {
+  // Thresholds rescaled to 0-100 (specs/006-scoring-rescale-0-100.md):
+  // >=80 excellent, >=60 good, >=30 fair, else poor.
   it("buckets ratings into the four tiers", () => {
-    expect(ratingTier(5)).toBe("excellent");
-    expect(ratingTier(4)).toBe("excellent");
-    expect(ratingTier(3.9)).toBe("good");
-    expect(ratingTier(3)).toBe("good");
-    expect(ratingTier(2.9)).toBe("fair");
-    expect(ratingTier(1.5)).toBe("fair");
-    expect(ratingTier(1.4)).toBe("poor");
+    expect(ratingTier(100)).toBe("excellent");
+    expect(ratingTier(80)).toBe("excellent");
+    expect(ratingTier(79)).toBe("good");
+    expect(ratingTier(60)).toBe("good");
+    expect(ratingTier(59)).toBe("fair");
+    expect(ratingTier(30)).toBe("fair");
+    expect(ratingTier(29)).toBe("poor");
     expect(ratingTier(0)).toBe("poor");
   });
 
   it("labels match the tier", () => {
-    expect(ratingLabel(5)).toBe("Excellent");
-    expect(ratingLabel(3)).toBe("Good");
-    expect(ratingLabel(2)).toBe("Fair");
-    expect(ratingLabel(0.2)).toBe("Poor");
+    expect(ratingLabel(100)).toBe("Excellent");
+    expect(ratingLabel(60)).toBe("Good");
+    expect(ratingLabel(40)).toBe("Fair");
+    expect(ratingLabel(4)).toBe("Poor");
   });
 });
 

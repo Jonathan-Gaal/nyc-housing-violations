@@ -3,10 +3,12 @@
 
 export type RatingTier = "excellent" | "good" | "fair" | "poor";
 
+// Thresholds calibrated to the 0-100 score scale (specs/006-scoring-rescale-0-100.md,
+// 2026-08-12) — a x20 rescale of the prior 0-5 thresholds (>=4, >=3, >=1.5).
 export function ratingTier(rating: number): RatingTier {
-  if (rating >= 4) return "excellent";
-  if (rating >= 3) return "good";
-  if (rating >= 1.5) return "fair";
+  if (rating >= 80) return "excellent";
+  if (rating >= 60) return "good";
+  if (rating >= 30) return "fair";
   return "poor";
 }
 

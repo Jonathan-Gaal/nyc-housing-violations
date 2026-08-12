@@ -1,5 +1,10 @@
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import type { ScoringBreakdown } from './scoring';
+
+// Accepts either a pooled connection or a single client checked out of the
+// pool (e.g. loadIntoDb.ts's transaction client) — both expose the same
+// `.query()` shape used by every function in this module.
+type Queryable = Pool | PoolClient;
 
 interface BuildingRowRaw {
   building_id: string;
@@ -114,6 +119,25 @@ export async function getViolationsForBuilding(
     [buildingId]
   );
   return result.rows;
+}
+
+interface MaxViolationsRow {
+  maxViolations: string | null;
+}
+
+// specs/007-scoring-new-formulas.md: product-spec §4.2 Factor 1 needs the
+// max violation_count among buildings in the same zip, computed fresh at
+// query time (not hardcoded/cached) so a building's Factor-1 score reflects
+// the current state of its zip. Called from loadIntoDb.ts (via a checked-out
+// transaction client) at load time, per this project's load-time-not-
+// read-time scoring architecture.
+export async function getMaxViolationsInZip(db: Queryable, zip: string): Promise<number> {
+  const result = await db.query<MaxViolationsRow>(
+    'SELECT MAX(violation_count) as "maxViolations" FROM buildings WHERE postcode = $1',
+    [zip]
+  );
+  const maxViolations = result.rows[0]?.maxViolations;
+  return maxViolations === null || maxViolations === undefined ? 0 : Number(maxViolations);
 }
 
 export interface HeatmapPoint {

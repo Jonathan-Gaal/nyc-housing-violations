@@ -1,6 +1,7 @@
 import type { Pool } from 'pg';
 import { aggregateBuildings, type RawViolationRow } from './csvLoader';
 import { calculateScore } from './scoring';
+import { getMaxViolationsInZip } from './queries';
 
 const UPSERT_BUILDING_SQL = `
   INSERT INTO buildings (
@@ -70,9 +71,31 @@ export async function loadIntoDb(
 ): Promise<{ buildingsLoaded: number; violationsLoaded: number }> {
   const { buildings, violations } = aggregateBuildings(rows, asOf);
 
+  // specs/007-scoring-new-formulas.md: product-spec §4.2 Factor 1 needs
+  // maxViolationsInZip. In-memory max covers buildings arriving in THIS
+  // batch (the common case: a full zip's worth of rows loaded together);
+  // the DB query covers buildings already persisted from a prior load that
+  // aren't part of this batch. Taking the max of both keeps Factor 1
+  // correct regardless of whether a zip is loaded in one batch or several,
+  // without recomputing the zip max once per building.
+  const inMemoryMaxByZip = new Map<string, number>();
+  for (const b of buildings) {
+    const currentMax = inMemoryMaxByZip.get(b.postcode) ?? 0;
+    if (b.violation_count > currentMax) {
+      inMemoryMaxByZip.set(b.postcode, b.violation_count);
+    }
+  }
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+
+    const maxViolationsInZipByZip = new Map<string, number>();
+    for (const zip of new Set(buildings.map((b) => b.postcode))) {
+      const persistedMax = await getMaxViolationsInZip(client, zip);
+      const inMemoryMax = inMemoryMaxByZip.get(zip) ?? 0;
+      maxViolationsInZipByZip.set(zip, Math.max(persistedMax, inMemoryMax));
+    }
 
     for (const b of buildings) {
       const { score } = calculateScore({
@@ -81,6 +104,7 @@ export async function loadIntoDb(
         avgDaysOpen: b.avg_days_open,
         percentDeadEnd: b.percent_dead_end,
         percentReissued: b.percent_reissued,
+        maxViolationsInZip: maxViolationsInZipByZip.get(b.postcode) ?? b.violation_count,
       });
 
       await client.query(UPSERT_BUILDING_SQL, [

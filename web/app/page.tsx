@@ -119,9 +119,14 @@ export default function Home() {
               <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center">
                 <SearchIcon />
               </span>
+              <label htmlFor="zip-search-input" className="sr-only">
+                Zip code
+              </label>
               <input
+                id="zip-search-input"
                 type="text"
                 inputMode="numeric"
+                aria-label="Zip code"
                 value={zipInput}
                 onChange={(e) => setZipInput(e.target.value)}
                 placeholder="Enter a zip code, e.g. 11106"

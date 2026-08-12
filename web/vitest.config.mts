@@ -15,4 +15,11 @@ export default defineConfig({
       '@': path.resolve(import.meta.dirname, '.'),
     },
   },
+  test: {
+    // web/e2e/**/*.spec.ts files use @playwright/test's `test`/`expect`,
+    // not Vitest's, and are run separately via `npm run e2e`
+    // (specs/011-playwright-setup.md). Excluding them here keeps the two
+    // suites from colliding under Vitest's default include glob.
+    exclude: ['**/node_modules/**', 'e2e/**'],
+  },
 });

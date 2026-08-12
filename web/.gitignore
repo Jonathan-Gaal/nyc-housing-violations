@@ -13,6 +13,10 @@
 # testing
 /coverage
 
+# playwright
+/playwright-report
+/test-results
+
 # generated SQLite db (rebuild with `npm run load-data`)
 /data/*.db
 /data/*.db-*

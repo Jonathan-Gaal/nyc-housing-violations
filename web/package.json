@@ -14,7 +14,17 @@
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
     "e2e:debug": "playwright test --debug",
-    "e2e:headed": "playwright test --headed"
+    "e2e:headed": "playwright test --headed",
+    "test:coverage": "vitest run --coverage",
+    "test:pre-commit": "npm run lint && npm run type-check && npm run test -- --run",
+    "test:pre-push": "npm run build && npm run test:coverage && npm run e2e",
+    "test:all": "npm run lint && npm run type-check && npm run test -- --run && npm run build && npm run e2e",
+    "prepare": "cd .. && node web/node_modules/husky/bin.js .husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix"
+    ]
   },
   "dependencies": {
     "better-sqlite3": "^13.0.2",
@@ -36,9 +46,12 @@
     "@types/pg": "^8.11.10",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/coverage-v8": "^4.1.10",
     "@vitest/ui": "^4.1.10",
     "eslint": "^9",
     "eslint-config-next": "16.3.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.3.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.5",
     "typescript": "^5",

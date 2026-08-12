@@ -1,0 +1,71 @@
+name: Test & Build
+
+on:
+  push:
+    branches: [main, staging]
+  pull_request:
+    branches: [main, staging]
+
+# NOTE (Supabase substitution, spec 013 / specs/003-postgres-schema-driver.md):
+# This project's locked decision (2026-08-05) is "no local Postgres, one real
+# Supabase project" for local development. CI extends the same reasoning
+# instead of spinning up a `postgres:15` service container (the source doc's
+# literal example, context/product/open-violation-e2e-testing-setup.md Part 6):
+# migrations and tests run against the same real Supabase project's
+# DATABASE_URL, supplied exclusively via the DATABASE_URL repository secret.
+#
+# Supabase branching (a paid-tier feature) is not assumed to be available.
+# Until/unless a dedicated Supabase branch is provisioned for CI, this
+# workflow runs against the single free-tier project's schema. The
+# `buildings`/`violations` tables are shared with local development in that
+# case — there is no CI-only namespaced schema/table prefix in place yet.
+# This is a documented limitation, not a silent shared-state assumption:
+# provisioning a dedicated CI branch/schema is a follow-up, not something
+# this workflow can create for itself from a secret alone.
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      NYC_APP_TOKEN: ${{ secrets.NYC_APP_TOKEN }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: cd web && npm ci
+
+      - name: Lint
+        run: cd web && npm run lint
+
+      - name: Type check
+        run: cd web && npm run type-check
+
+      - name: Unit tests
+        run: cd web && npm run test -- --run
+
+      - name: Run database migrations against Supabase
+        run: cd web && npx tsx scripts/migrate.ts
+
+      - name: Build
+        run: cd web && npm run build
+
+      - name: Install Playwright browsers
+        run: cd web && npx playwright install --with-deps
+
+      - name: E2E tests
+        run: cd web && npm run e2e
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: web/playwright-report/
+          retention-days: 30

@@ -1,4 +1,4 @@
-import { getDb } from '@/lib/db';
+import { getPool } from '@/lib/pgClient';
 import { getViolationsForBuilding } from '@/lib/queries';
 import { validateBuildingId } from '@/lib/validation';
 
@@ -12,8 +12,8 @@ export async function GET(request: Request) {
   }
 
   try {
-    const db = getDb();
-    const violations = getViolationsForBuilding(db, buildingId as string);
+    const pool = getPool();
+    const violations = await getViolationsForBuilding(pool, buildingId as string);
     return Response.json({ violations });
   } catch {
     return Response.json({ error: 'Internal server error' }, { status: 500 });

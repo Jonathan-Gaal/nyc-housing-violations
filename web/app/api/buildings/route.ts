@@ -1,4 +1,4 @@
-import { getDb } from '@/lib/db';
+import { getPool } from '@/lib/pgClient';
 import { getZipSummaryAndTopBuildings } from '@/lib/queries';
 import { validateZipCode } from '@/lib/validation';
 
@@ -12,8 +12,8 @@ export async function GET(request: Request) {
   }
 
   try {
-    const db = getDb();
-    const { summary, topBuildings } = getZipSummaryAndTopBuildings(db, zip as string);
+    const pool = getPool();
+    const { summary, topBuildings } = await getZipSummaryAndTopBuildings(pool, zip as string);
     return Response.json({ summary, topBuildings });
   } catch {
     return Response.json({ error: 'Internal server error' }, { status: 500 });

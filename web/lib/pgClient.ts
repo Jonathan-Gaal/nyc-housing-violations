@@ -9,6 +9,14 @@ const POSTGRES_CONNECTION_STRING_PATTERN = /^postgres(?:ql)?:\/\/[^\s:]+:[^\s@]+
 // placeholder from .env.example rather than a real credential.
 const PLACEHOLDER_MARKERS = ['YOUR-PASSWORD', 'PROJECT-REF', '[', ']'];
 
+// Shared placeholder-detection logic — also used by test suites (via
+// isDatabaseUrlPlaceholder) to decide whether to skip tests that require a
+// real Supabase instance rather than fail against a placeholder credential.
+export function isDatabaseUrlPlaceholder(databaseUrl: string | undefined): boolean {
+  if (!databaseUrl || databaseUrl.trim().length === 0) return true;
+  return PLACEHOLDER_MARKERS.some((marker) => databaseUrl.includes(marker));
+}
+
 function assertValidDatabaseUrl(databaseUrl: string | undefined): asserts databaseUrl is string {
   if (!databaseUrl || databaseUrl.trim().length === 0) {
     throw new Error(
@@ -17,7 +25,7 @@ function assertValidDatabaseUrl(databaseUrl: string | undefined): asserts databa
     );
   }
 
-  if (PLACEHOLDER_MARKERS.some((marker) => databaseUrl.includes(marker))) {
+  if (isDatabaseUrlPlaceholder(databaseUrl)) {
     throw new Error(
       'DATABASE_URL still contains the placeholder value from web/.env.example. ' +
         'Replace it with your real Supabase pooled connection string before running this.'

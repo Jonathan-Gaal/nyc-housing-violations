@@ -71,3 +71,26 @@ export async function verifyIdToken(token: string): Promise<DecodedIdToken> {
   const app = getFirebaseAdmin();
   return getAuth(app).verifyIdToken(token);
 }
+
+// Exchanges a freshly-verified Firebase ID token for a cryptographically
+// signed session-cookie value (Firebase Admin SDK's own purpose-built
+// mechanism for this exact pattern — see
+// https://firebase.google.com/docs/auth/admin/manage-cookies). The returned
+// string is what gets set as the session cookie's value; unlike a raw UID,
+// it is signed by Firebase and cannot be forged by a client setting an
+// arbitrary Cookie header (spec 015 Mode-2 correction).
+export async function createSessionCookie(idToken: string, expiresInMillis: number): Promise<string> {
+  const app = getFirebaseAdmin();
+  return getAuth(app).createSessionCookie(idToken, { expiresIn: expiresInMillis });
+}
+
+// Cryptographically verifies a session-cookie value produced by
+// createSessionCookie above and returns its decoded claims. Rejects
+// (throws) for any tampered, forged, expired, or otherwise invalid cookie
+// value — a caller must never treat the raw cookie string as trustworthy
+// without routing it through this function first.
+export async function verifySessionCookie(sessionCookieValue: string): Promise<DecodedIdToken> {
+  const app = getFirebaseAdmin();
+  const checkRevoked = true;
+  return getAuth(app).verifySessionCookie(sessionCookieValue, checkRevoked);
+}

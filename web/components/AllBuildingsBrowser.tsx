@@ -99,11 +99,12 @@ export default function AllBuildingsBrowser({
             // legal boilerplate) stretches into single lines 1000+px wide
             // instead of wrapping/truncating like it does in the sidebar.
             <div className="mx-auto max-w-2xl">
-              {/* Tall enough to show ~10 collapsed cards before scrolling —
-                  at PAGE_SIZE=20 (web/app/api/buildings/all/route.ts)
+              {/* Shows ~6 collapsed cards before scrolling — at
+                  PAGE_SIZE=20 (web/app/api/buildings/all/route.ts)
                   buildings, an unbounded list here pushed the whole page to
-                  several thousand pixels tall. */}
-              <div className="flex max-h-[820px] flex-col gap-2.5 overflow-y-auto pr-1">
+                  several thousand pixels tall. Stays scrollable/paginated
+                  rather than growing to fit all 20. */}
+              <div className="flex max-h-[470px] flex-col gap-2.5 overflow-y-auto pr-1">
                 {data.buildings.map((b) => (
                   <BuildingCard
                     key={b.building_id}

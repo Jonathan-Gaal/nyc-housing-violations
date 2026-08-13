@@ -102,14 +102,18 @@ export interface PaginatedBuildings {
   totalPages: number;
 }
 
+export type BuildingSortOrder = "worst" | "best";
+
 // Powers the "browse all buildings" component (below the top-10 sidebar,
 // which getZipSummaryAndTopBuildings already covers) — same worst-first
-// ordering, but paginated across the full result set instead of capped at 10.
+// ordering by default, but paginated across the full result set instead of
+// capped at 10, and sortable to best-first on request.
 export async function getPaginatedBuildingsForZip(
   pool: Pool,
   zip: string,
   page: number,
-  pageSize: number
+  pageSize: number,
+  sort: BuildingSortOrder = "worst"
 ): Promise<PaginatedBuildings> {
   const totalResult = await pool.query<{ totalBuildings: string }>(
     'SELECT COUNT(*) as "totalBuildings" FROM buildings WHERE postcode = $1',
@@ -120,12 +124,20 @@ export async function getPaginatedBuildingsForZip(
   const clampedPage = Math.min(Math.max(1, page), totalPages);
   const offset = (clampedPage - 1) * pageSize;
 
+  // Secondary sort mirrors the primary direction — worst-first breaks
+  // rating ties by more violations first, best-first breaks ties by fewer
+  // violations first — so within a tied rating, "worse" still reads as worse.
+  const orderClause =
+    sort === "best"
+      ? "ORDER BY rating DESC, violation_count ASC"
+      : "ORDER BY rating ASC, violation_count DESC";
+
   const buildingsResult = await pool.query<BuildingRowRaw>(
     `SELECT building_id, street_name, postcode, house_number_display, latitude, longitude,
             violation_count, rent_impairing_count, avg_days_open,
             percent_dead_end, percent_reissued, recurring_issue_count,
             rating, last_violation_date
-     FROM buildings WHERE postcode = $1 ORDER BY rating ASC, violation_count DESC LIMIT $2 OFFSET $3`,
+     FROM buildings WHERE postcode = $1 ${orderClause} LIMIT $2 OFFSET $3`,
     [zip, pageSize, offset]
   );
 

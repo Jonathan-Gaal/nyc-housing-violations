@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import BuildingCard from "@/components/BuildingCard";
-import type { PaginatedBuildings } from "@/lib/queries";
+import type { BuildingSortOrder, PaginatedBuildings } from "@/lib/queries";
 import { neighborhoodForZip } from "@/lib/zipNeighborhoods";
 
 function ChevronIcon({ open }: { open: boolean }) {
@@ -41,12 +41,16 @@ export default function AllBuildingsBrowser({
   const [data, setData] = useState<PaginatedBuildings | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sort, setSort] = useState<BuildingSortOrder>("worst");
+  const [pageInput, setPageInput] = useState("");
 
-  async function loadPage(page: number) {
+  async function loadPage(page: number, sortOverride?: BuildingSortOrder) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/buildings/all?zip=${encodeURIComponent(zip)}&page=${page}`);
+      const res = await fetch(
+        `/api/buildings/all?zip=${encodeURIComponent(zip)}&page=${page}&sort=${sortOverride ?? sort}`
+      );
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed to load buildings");
       setData(json);
@@ -66,6 +70,22 @@ export default function AllBuildingsBrowser({
     if (data === null) {
       await loadPage(1);
     }
+  }
+
+  function handleSortChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const newSort = e.target.value as BuildingSortOrder;
+    setSort(newSort);
+    loadPage(1, newSort);
+  }
+
+  function handlePageJump(e: React.FormEvent) {
+    e.preventDefault();
+    if (!data) return;
+    const requested = Number(pageInput);
+    if (!Number.isFinite(requested)) return;
+    const clamped = Math.min(Math.max(1, Math.floor(requested)), data.totalPages);
+    setPageInput("");
+    loadPage(clamped);
   }
 
   return (
@@ -99,6 +119,22 @@ export default function AllBuildingsBrowser({
             // legal boilerplate) stretches into single lines 1000+px wide
             // instead of wrapping/truncating like it does in the sidebar.
             <div className="mx-auto max-w-2xl">
+              <div className="mb-2 flex items-center justify-between text-xs text-slate-500">
+                <span>{data.totalBuildings.toLocaleString()} buildings</span>
+                <label className="flex items-center gap-1.5">
+                  Sort:
+                  <select
+                    value={sort}
+                    onChange={handleSortChange}
+                    disabled={loading}
+                    className="cursor-pointer rounded-md border border-slate-200 bg-white px-1.5 py-1 text-xs font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <option value="worst">Worst rated first</option>
+                    <option value="best">Best rated first</option>
+                  </select>
+                </label>
+              </div>
+
               {/* Shows ~6 collapsed cards before scrolling — at
                   PAGE_SIZE=20 (web/app/api/buildings/all/route.ts)
                   buildings, an unbounded list here pushed the whole page to
@@ -115,25 +151,67 @@ export default function AllBuildingsBrowser({
                 ))}
               </div>
 
-              <div className="mt-4 flex items-center justify-between text-sm">
-                <button
-                  onClick={() => loadPage(data.page - 1)}
-                  disabled={data.page <= 1 || loading}
-                  className="cursor-pointer rounded-full border border-slate-200 px-2.5 py-1 font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Previous
-                </button>
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm">
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => loadPage(1)}
+                    disabled={data.page <= 1 || loading}
+                    className="cursor-pointer rounded-full border border-slate-200 px-2.5 py-1 font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    « First
+                  </button>
+                  <button
+                    onClick={() => loadPage(data.page - 1)}
+                    disabled={data.page <= 1 || loading}
+                    className="cursor-pointer rounded-full border border-slate-200 px-2.5 py-1 font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Previous
+                  </button>
+                </div>
                 <span className="text-slate-500">
                   Page {data.page} of {data.totalPages}
                 </span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => loadPage(data.page + 1)}
+                    disabled={data.page >= data.totalPages || loading}
+                    className="cursor-pointer rounded-full border border-slate-200 px-2.5 py-1 font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Next
+                  </button>
+                  <button
+                    onClick={() => loadPage(data.totalPages)}
+                    disabled={data.page >= data.totalPages || loading}
+                    className="cursor-pointer rounded-full border border-slate-200 px-2.5 py-1 font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Last »
+                  </button>
+                </div>
+              </div>
+
+              <form
+                onSubmit={handlePageJump}
+                className="mt-2 flex items-center justify-center gap-1.5 text-xs text-slate-500"
+              >
+                <label htmlFor="browse-all-page-jump">Go to page</label>
+                <input
+                  id="browse-all-page-jump"
+                  type="number"
+                  min={1}
+                  max={data.totalPages}
+                  value={pageInput}
+                  onChange={(e) => setPageInput(e.target.value)}
+                  disabled={loading}
+                  className="w-14 rounded-md border border-slate-200 px-1.5 py-1 text-center text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                />
                 <button
-                  onClick={() => loadPage(data.page + 1)}
-                  disabled={data.page >= data.totalPages || loading}
+                  type="submit"
+                  disabled={loading || !pageInput}
                   className="cursor-pointer rounded-full border border-slate-200 px-2.5 py-1 font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  Next
+                  Go
                 </button>
-              </div>
+              </form>
             </div>
           )}
         </div>

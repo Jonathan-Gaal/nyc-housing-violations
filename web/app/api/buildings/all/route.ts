@@ -1,5 +1,5 @@
 import { getPool } from '@/lib/pgClient';
-import { getPaginatedBuildingsForZip } from '@/lib/queries';
+import { getPaginatedBuildingsForZip, type BuildingSortOrder } from '@/lib/queries';
 import { validateZipCode } from '@/lib/validation';
 
 const PAGE_SIZE = 20;
@@ -9,6 +9,7 @@ export async function GET(request: Request) {
   const zip = searchParams.get('zip');
   const requestedPage = Number(searchParams.get('page'));
   const page = Number.isFinite(requestedPage) && requestedPage > 0 ? Math.floor(requestedPage) : 1;
+  const sort: BuildingSortOrder = searchParams.get('sort') === 'best' ? 'best' : 'worst';
 
   const validation = validateZipCode(zip);
   if (!validation.valid) {
@@ -17,7 +18,7 @@ export async function GET(request: Request) {
 
   try {
     const pool = getPool();
-    const result = await getPaginatedBuildingsForZip(pool, zip as string, page, PAGE_SIZE);
+    const result = await getPaginatedBuildingsForZip(pool, zip as string, page, PAGE_SIZE, sort);
     return Response.json(result);
   } catch {
     return Response.json({ error: 'Internal server error' }, { status: 500 });

@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import type { BuildingRow, ViolationRow } from "@/lib/queries";
 import { ratingTier, ratingLabel, humanizeDaysOpen, type RatingTier } from "@/lib/format";
 import { ratingToStars } from "@/lib/starRating";
 import StarRating from "@/components/StarRating";
 import type { LandlordInfo } from "@/lib/landlords";
+import type { LandlordProfile } from "@/lib/landlordProfile";
 
 // Chart.js is a heavy library — dynamically imported (ssr: false) so it's
 // only pulled into the client bundle once a building card is expanded, same
@@ -69,6 +71,7 @@ export default function BuildingCard({ building }: { building: BuildingRow }) {
   const [expanded, setExpanded] = useState(false);
   const [violations, setViolations] = useState<ViolationRow[] | null>(null);
   const [landlord, setLandlord] = useState<LandlordInfo | null>(null);
+  const [landlordProfile, setLandlordProfile] = useState<LandlordProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -90,6 +93,7 @@ export default function BuildingCard({ building }: { building: BuildingRow }) {
       if (!res.ok) throw new Error(data.error || "Failed to load violations");
       setViolations(data.violations);
       setLandlord(data.landlord ?? null);
+      setLandlordProfile(data.landlordProfile ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load violations");
     } finally {
@@ -153,14 +157,34 @@ export default function BuildingCard({ building }: { building: BuildingRow }) {
               </p>
               {landlord ? (
                 <>
-                  <p className="text-sm font-medium text-slate-800">
-                    {landlord.ownerName ?? "Name not on file"}
-                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-medium text-slate-800">
+                      {landlord.ownerName ?? "Name not on file"}
+                    </p>
+                    {landlordProfile && <StarRating rating={landlordProfile.rating} />}
+                  </div>
                   {landlord.officerName && landlord.officerName !== landlord.ownerName && (
                     <p className="text-xs text-slate-500">Officer: {landlord.officerName}</p>
                   )}
                   {landlord.agentName && (
                     <p className="text-xs text-slate-500">Agent: {landlord.agentName}</p>
+                  )}
+                  {landlordProfile && landlord.officerFirstName && landlord.officerLastName && (
+                    <Link
+                      href={{
+                        pathname: "/landlord",
+                        query: {
+                          firstName: landlord.officerFirstName,
+                          lastName: landlord.officerLastName,
+                          officerName: landlord.officerName ?? "",
+                          ...(landlord.businessAddress ? { businessAddress: landlord.businessAddress } : {}),
+                        },
+                      }}
+                      className="mt-1 inline-block text-xs font-semibold text-blue-600 hover:underline"
+                    >
+                      View full landlord profile ({landlordProfile.buildingCount} building
+                      {landlordProfile.buildingCount === 1 ? "" : "s"}) →
+                    </Link>
                   )}
                 </>
               ) : (

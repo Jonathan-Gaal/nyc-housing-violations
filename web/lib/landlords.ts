@@ -36,6 +36,8 @@ export interface LandlordInfo {
   ownerName: string | null;
   ownerType: string | null;
   officerName: string | null;
+  officerFirstName: string | null;
+  officerLastName: string | null;
   agentName: string | null;
   businessAddress: string | null;
 }
@@ -67,6 +69,8 @@ async function fetchLandlordInfo(registrationId: string): Promise<LandlordInfo |
     ownerName: owner ? contactName(owner) : null,
     ownerType: owner?.type ?? null,
     officerName: officer ? contactName(officer) : null,
+    officerFirstName: officer?.firstname ?? null,
+    officerLastName: officer?.lastname ?? null,
     agentName: agent ? contactName(agent) : null,
     businessAddress: businessAddress(owner ?? agent ?? {}),
   };
@@ -77,6 +81,8 @@ function rowToLandlordInfo(row: {
   owner_name: string | null;
   owner_type: string | null;
   officer_name: string | null;
+  officer_firstname: string | null;
+  officer_lastname: string | null;
   agent_name: string | null;
   business_address: string | null;
 }): LandlordInfo | null {
@@ -91,6 +97,8 @@ function rowToLandlordInfo(row: {
     ownerName: row.owner_name,
     ownerType: row.owner_type,
     officerName: row.officer_name,
+    officerFirstName: row.officer_firstname,
+    officerLastName: row.officer_lastname,
     agentName: row.agent_name,
     businessAddress: row.business_address,
   };
@@ -105,7 +113,8 @@ export async function getOrFetchLandlord(
   registrationId: string
 ): Promise<LandlordInfo | null> {
   const cached = await pool.query(
-    `SELECT registration_id, owner_name, owner_type, officer_name, agent_name, business_address
+    `SELECT registration_id, owner_name, owner_type, officer_name, officer_firstname,
+            officer_lastname, agent_name, business_address
      FROM landlords WHERE registration_id = $1`,
     [registrationId]
   );
@@ -123,17 +132,22 @@ export async function getOrFetchLandlord(
     ownerName: null,
     ownerType: null,
     officerName: null,
+    officerFirstName: null,
+    officerLastName: null,
     agentName: null,
     businessAddress: null,
   };
 
   await pool.query(
-    `INSERT INTO landlords (registration_id, owner_name, owner_type, officer_name, agent_name, business_address)
-     VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO landlords (registration_id, owner_name, owner_type, officer_name,
+       officer_firstname, officer_lastname, agent_name, business_address)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      ON CONFLICT (registration_id) DO UPDATE SET
        owner_name = excluded.owner_name,
        owner_type = excluded.owner_type,
        officer_name = excluded.officer_name,
+       officer_firstname = excluded.officer_firstname,
+       officer_lastname = excluded.officer_lastname,
        agent_name = excluded.agent_name,
        business_address = excluded.business_address`,
     [
@@ -141,6 +155,8 @@ export async function getOrFetchLandlord(
       toCache.ownerName,
       toCache.ownerType,
       toCache.officerName,
+      toCache.officerFirstName,
+      toCache.officerLastName,
       toCache.agentName,
       toCache.businessAddress,
     ]

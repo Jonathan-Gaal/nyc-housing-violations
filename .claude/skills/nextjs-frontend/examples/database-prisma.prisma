@@ -1,0 +1,274 @@
+// examples/database-prisma.prisma
+// Production-grade Prisma schema
+// Pattern: Type-safe database queries, migrations, relationships
+
+// ============================================================================
+// DATASOURCE & GENERATOR
+// ============================================================================
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+  // Enable full-text search
+  previewFeatures = ["fullTextSearch"]
+}
+
+// ============================================================================
+// MODELS
+// ============================================================================
+
+model User {
+  // Primary key
+  id        String   @id @default(cuid())
+  
+  // Auth
+  email     String   @unique
+  password  String   // Hash only
+  role      String   @default("user") // "user" | "admin"
+  
+  // Profile
+  name      String?
+  avatar    String?
+  bio       String?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  posts     Post[]
+  comments  Comment[]
+  sessions  Session[]
+  
+  // Indexes
+  @@index([email])
+  @@index([createdAt])
+}
+
+model Post {
+  // Primary key
+  id        String   @id @default(cuid())
+  
+  // Content
+  title     String
+  content   String   @db.Text
+  tags      String[] @default([])
+  
+  // Status
+  published Boolean  @default(false)
+  
+  // Author
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  comments  Comment[]
+  
+  // Indexes
+  @@index([authorId])
+  @@index([published])
+  @@index([createdAt])
+}
+
+model Comment {
+  // Primary key
+  id        String   @id @default(cuid())
+  
+  // Content
+  text      String   @db.Text
+  
+  // Relations
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Indexes
+  @@index([postId])
+  @@index([authorId])
+  @@index([createdAt])
+}
+
+model Session {
+  // Primary key
+  id        String   @id @default(cuid())
+  
+  // Session data (for NextAuth)
+  sessionToken String @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Expiration
+  expires   DateTime
+  
+  // Indexes
+  @@index([userId])
+  @@index([expires])
+}
+
+// ============================================================================
+// DATABASE CLIENT (lib/db.ts)
+// ============================================================================
+
+/*
+import { PrismaClient } from '@prisma/client';
+
+const globalForPrisma = global as unknown as { prisma: PrismaClient };
+
+export const db =
+  globalForPrisma.prisma ||
+  new PrismaClient({
+    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+  });
+
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db;
+*/
+
+// ============================================================================
+// MIGRATION COMMANDS
+// ============================================================================
+
+/*
+# Create migration
+npx prisma migrate dev --name add_posts_table
+
+# Apply migrations in production
+npx prisma migrate deploy
+
+# Reset database (development only)
+npx prisma migrate reset
+
+# Introspect existing database
+npx prisma introspect
+
+# Generate types
+npx prisma generate
+*/
+
+// ============================================================================
+// USAGE EXAMPLES (lib/queries/posts.ts)
+// ============================================================================
+
+/*
+import { db } from '@/lib/db';
+import { Prisma } from '@prisma/client';
+
+// Create post
+export async function createPost(
+  data: Prisma.PostCreateInput & { authorId: string }
+) {
+  return db.post.create({
+    data,
+    include: {
+      author: {
+        select: { id: true, name: true, email: true, avatar: true },
+      },
+    },
+  });
+}
+
+// Get posts with pagination
+export async function getPosts(
+  where?: Prisma.PostWhereInput,
+  skip = 0,
+  take = 10
+) {
+  return Promise.all([
+    db.post.findMany({
+      where,
+      skip,
+      take,
+      include: {
+        author: {
+          select: { id: true, name: true, avatar: true },
+        },
+        comments: {
+          select: { id: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    }),
+    db.post.count({ where }),
+  ]);
+}
+
+// Get single post with comments
+export async function getPost(id: string) {
+  return db.post.findUnique({
+    where: { id },
+    include: {
+      author: {
+        select: { id: true, name: true, email: true, avatar: true },
+      },
+      comments: {
+        include: {
+          author: {
+            select: { id: true, name: true, avatar: true },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      },
+    },
+  });
+}
+
+// Update post
+export async function updatePost(
+  id: string,
+  data: Prisma.PostUpdateInput
+) {
+  return db.post.update({
+    where: { id },
+    data,
+    include: { author: true },
+  });
+}
+
+// Delete post
+export async function deletePost(id: string) {
+  return db.post.delete({
+    where: { id },
+  });
+}
+
+// Search posts
+export async function searchPosts(query: string) {
+  return db.post.findMany({
+    where: {
+      OR: [
+        { title: { search: query } },
+        { content: { search: query } },
+        { tags: { has: query } },
+      ],
+    },
+    include: { author: true },
+  });
+}
+*/
+
+// ============================================================================
+// BEST PRACTICES DEMONSTRATED
+// ============================================================================
+
+// ✅ Type safety: Auto-generated Prisma types
+// ✅ Relationships: Foreign keys with cascade delete
+// ✅ Indexes: Strategic indexes for performance
+// ✅ Timestamps: Automatic createdAt, updatedAt
+// ✅ Validation: Email uniqueness enforced at database level
+// ✅ Migrations: Version-controlled schema changes
+// ✅ Client singleton: Prevent multiple PrismaClient instances
+// ✅ Logging: Development logging for debugging
+// ✅ Queries: Efficient queries with select and include
+// ✅ Pagination: Built-in skip/take for large datasets

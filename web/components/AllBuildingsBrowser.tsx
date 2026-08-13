@@ -30,7 +30,13 @@ function ListIcon() {
   );
 }
 
-export default function AllBuildingsBrowser({ zip }: { zip: string }) {
+export default function AllBuildingsBrowser({
+  zip,
+  onViewOnMap,
+}: {
+  zip: string;
+  onViewOnMap?: (lat: number, lng: number) => void;
+}) {
   const [expanded, setExpanded] = useState(false);
   const [data, setData] = useState<PaginatedBuildings | null>(null);
   const [loading, setLoading] = useState(false);
@@ -95,7 +101,7 @@ export default function AllBuildingsBrowser({ zip }: { zip: string }) {
             <div className="mx-auto max-w-2xl">
               <div className="flex flex-col gap-3">
                 {data.buildings.map((b) => (
-                  <BuildingCard key={b.building_id} building={b} />
+                  <BuildingCard key={b.building_id} building={b} onViewOnMap={onViewOnMap} />
                 ))}
               </div>
 

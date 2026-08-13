@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import BuildingCard from "@/components/BuildingCard";
 import AllBuildingsBrowser from "@/components/AllBuildingsBrowser";
 import type { BuildingRow, ZipSummary, HeatmapPoint } from "@/lib/queries";
+import type { MapFocusPoint } from "@/components/MapView";
 import { neighborhoodForZip } from "@/lib/zipNeighborhoods";
 import { isKnownNycZip } from "@/lib/nycZips";
 
@@ -65,6 +66,14 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+  const [focusPoint, setFocusPoint] = useState<MapFocusPoint | null>(null);
+
+  // Always a new object, even for a repeat click on the same building — this
+  // is what lets MapView's focusPoint effect re-fire on identical
+  // coordinates (see components/MapView.tsx).
+  function viewOnMap(lat: number, lng: number) {
+    setFocusPoint({ lat, lng });
+  }
 
   const hasNonDigitInput = zipInput.length > 0 && !/^\d*$/.test(zipInput);
   const isCompleteZipFormat = /^\d{5}$/.test(zipInput);
@@ -219,13 +228,13 @@ export default function Home() {
                   </h2>
                   <div className="flex flex-col gap-3 lg:max-h-[600px] lg:overflow-y-auto lg:pr-1">
                     {buildings.map((b) => (
-                      <BuildingCard key={b.building_id} building={b} />
+                      <BuildingCard key={b.building_id} building={b} onViewOnMap={viewOnMap} />
                     ))}
                   </div>
                 </aside>
                 <div className="order-1 lg:order-2">
-                  <MapView points={points} />
-                  <AllBuildingsBrowser zip={searchedZip} />
+                  <MapView points={points} focusPoint={focusPoint} />
+                  <AllBuildingsBrowser zip={searchedZip} onViewOnMap={viewOnMap} />
                 </div>
               </div>
             )}

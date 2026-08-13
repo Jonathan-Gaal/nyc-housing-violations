@@ -55,6 +55,18 @@ function ChevronIcon({ open }: { open: boolean }) {
   );
 }
 
+function MapPinIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
+      <path
+        fillRule="evenodd"
+        d="M9.69 18.933a.75.75 0 00.62 0c.058-.026 5.68-2.65 5.68-8.183a6.05 6.05 0 00-6-6 6.05 6.05 0 00-6 6c0 5.533 5.622 8.157 5.7 8.183zM10 12a2 2 0 100-4 2 2 0 000 4z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
+
 function WarningIcon() {
   return (
     <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
@@ -67,7 +79,13 @@ function WarningIcon() {
   );
 }
 
-export default function BuildingCard({ building }: { building: BuildingRow }) {
+export default function BuildingCard({
+  building,
+  onViewOnMap,
+}: {
+  building: BuildingRow;
+  onViewOnMap?: (lat: number, lng: number) => void;
+}) {
   const [expanded, setExpanded] = useState(false);
   const [violations, setViolations] = useState<ViolationRow[] | null>(null);
   const [landlord, setLandlord] = useState<LandlordInfo | null>(null);
@@ -114,6 +132,11 @@ export default function BuildingCard({ building }: { building: BuildingRow }) {
     setExpanded(true);
     setShowOnlyRentImpairing(true);
     loadDataIfNeeded();
+  }
+
+  function viewOnMap(e: React.MouseEvent) {
+    e.stopPropagation();
+    onViewOnMap?.(building.latitude, building.longitude);
   }
 
   const allByEntrance = (violations ?? []).reduce<Record<string, ViolationRow[]>>((acc, v) => {
@@ -165,6 +188,15 @@ export default function BuildingCard({ building }: { building: BuildingRow }) {
               >
                 <WarningIcon />
                 {building.rent_impairing_count} rent-impairing
+              </button>
+            )}
+            {onViewOnMap && (
+              <button
+                onClick={viewOnMap}
+                className="inline-flex cursor-pointer items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 transition-colors hover:bg-blue-100"
+              >
+                <MapPinIcon />
+                See on map
               </button>
             )}
           </div>

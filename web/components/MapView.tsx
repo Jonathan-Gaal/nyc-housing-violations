@@ -1,11 +1,41 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
+import type { Map as LeafletMap } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { HeatmapPoint } from "@/lib/queries";
 import { computeMarkerColor, computeMarkerRadius } from "@/lib/mapMarkers";
 
-export default function MapView({ points }: { points: HeatmapPoint[] }) {
+// How far in to fly when a "See on map" button targets a specific building
+// — well past the default zip-level zoom (15) so the target building is
+// unambiguous among its neighbors.
+const FOCUS_ZOOM = 18;
+
+export interface MapFocusPoint {
+  lat: number;
+  lng: number;
+}
+
+export default function MapView({
+  points,
+  focusPoint,
+}: {
+  points: HeatmapPoint[];
+  focusPoint?: MapFocusPoint | null;
+}) {
+  const mapRef = useRef<LeafletMap | null>(null);
+
+  // A new focusPoint object (even with identical coordinates — see
+  // app/page.tsx's onViewOnMap, which always creates a fresh object) always
+  // re-triggers this, so clicking "See on map" twice in a row re-flies
+  // instead of doing nothing the second time.
+  useEffect(() => {
+    if (focusPoint && mapRef.current) {
+      mapRef.current.flyTo([focusPoint.lat, focusPoint.lng], FOCUS_ZOOM, { duration: 1 });
+    }
+  }, [focusPoint]);
+
   if (points.length === 0) {
     return (
       <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
@@ -19,7 +49,7 @@ export default function MapView({ points }: { points: HeatmapPoint[] }) {
 
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 shadow-sm">
-      <MapContainer center={center} zoom={15} style={{ height: 440, width: "100%" }}>
+      <MapContainer ref={mapRef} center={center} zoom={15} style={{ height: 440, width: "100%" }}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

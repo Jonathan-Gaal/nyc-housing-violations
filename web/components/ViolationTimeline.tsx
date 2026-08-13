@@ -58,16 +58,24 @@ export default function ViolationTimeline({ violations }: { violations: Violatio
         label: "Open",
         data: timelineData.buckets.map((bucket) => bucket.open),
         backgroundColor: OPEN_COLOR,
+        // Without a cap, Chart.js stretches bars to fill the full chart
+        // width regardless of category count — fine with many buckets, but
+        // a chart with only 1-2 buckets renders one giant, unreadable bar.
+        // maxBarThickness bounds the upper size while still letting bars
+        // shrink further when there are many of them.
+        maxBarThickness: 56,
       },
       {
         label: "Closed",
         data: timelineData.buckets.map((bucket) => bucket.closed),
         backgroundColor: CLOSED_COLOR,
+        maxBarThickness: 56,
       },
       {
         label: "Reissued",
         data: timelineData.buckets.map((bucket) => bucket.reissued),
         backgroundColor: REISSUED_COLOR,
+        maxBarThickness: 56,
       },
     ],
   };

@@ -32,7 +32,7 @@ function RatingBadge({ rating }: { rating: number }) {
   return (
     <span className="inline-flex items-center gap-2">
       <StarRating rating={rating} />
-      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${styles.badge}`}>
+      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${styles.badge}`}>
         {stars.toFixed(1)} · {ratingLabel(rating)}
       </span>
     </span>
@@ -173,7 +173,7 @@ export default function BuildingCard({
         role="button"
         tabIndex={0}
         data-testid="building-card-toggle"
-        className="flex w-full cursor-pointer items-start justify-between gap-4 p-4 text-left"
+        className="flex w-full cursor-pointer items-start justify-between gap-4 p-3.5 text-left"
       >
         <div className="min-w-0">
           <h3 className="truncate font-semibold text-slate-900">
@@ -184,7 +184,7 @@ export default function BuildingCard({
             {building.rent_impairing_count > 0 && (
               <button
                 onClick={showRentImpairingOnly}
-                className="inline-flex cursor-pointer items-center gap-1 rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 transition-colors hover:bg-red-100"
+                className="inline-flex cursor-pointer items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700 transition-colors hover:bg-red-100"
               >
                 <WarningIcon />
                 {building.rent_impairing_count} rent-impairing
@@ -203,7 +203,7 @@ export default function BuildingCard({
           {onViewOnMap && (
             <button
               onClick={viewOnMap}
-              className="inline-flex cursor-pointer items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 transition-colors hover:bg-blue-100"
+              className="inline-flex cursor-pointer items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700 transition-colors hover:bg-blue-100"
             >
               <MapPinIcon />
               See on map
@@ -213,7 +213,7 @@ export default function BuildingCard({
       </div>
 
       {expanded && (
-        <div className="border-t border-slate-100 px-4 pb-4 pt-3">
+        <div className="border-t border-slate-100 px-3.5 pb-3.5 pt-2.5">
           {loading && (
             <div className="flex items-center gap-2 py-2 text-sm text-slate-500">
               <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />
@@ -222,7 +222,7 @@ export default function BuildingCard({
           )}
           {error && <p className="text-sm text-red-600">{error}</p>}
           {!loading && !error && violations !== null && (
-            <div className="mb-3 rounded-lg bg-slate-50 px-3 py-2">
+            <div className="mb-3 rounded-lg bg-slate-50 px-2.5 py-1.5">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                 Registered Owner
               </p>
@@ -267,7 +267,7 @@ export default function BuildingCard({
             <ViolationTimeline violations={violations} />
           )}
           {!loading && !error && showOnlyRentImpairing && (
-            <div className="mb-2 flex items-center justify-between rounded-lg bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700">
+            <div className="mb-2 flex items-center justify-between rounded-lg bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700">
               <span>Showing rent-impairing violations only</span>
               <button
                 onClick={(e) => {
@@ -293,7 +293,7 @@ export default function BuildingCard({
                   </h4>
                   <ul className="divide-y divide-slate-100">
                     {list.map((v) => (
-                      <li key={v.violation_id} className="flex items-start justify-between gap-3 py-2">
+                      <li key={v.violation_id} className="flex items-start justify-between gap-3 py-1.5">
                         <div className="min-w-0">
                           <p className="truncate text-sm text-slate-700">
                             {v.nov_description || v.nov_type || "Violation"}

@@ -72,7 +72,7 @@ export default function AllBuildingsBrowser({
     <div className="mt-4 overflow-hidden rounded-xl border border-blue-200 bg-white shadow-sm">
       <button
         onClick={toggle}
-        className="flex w-full cursor-pointer items-center justify-between gap-4 bg-blue-600 px-5 py-4 text-left transition-colors hover:bg-blue-700"
+        className="flex w-full cursor-pointer items-center justify-between gap-4 bg-blue-600 px-4 py-3 text-left transition-colors hover:bg-blue-700"
       >
         <span className="flex items-center gap-2.5 text-sm font-bold text-white">
           <ListIcon />
@@ -84,7 +84,7 @@ export default function AllBuildingsBrowser({
       </button>
 
       {expanded && (
-        <div className="px-4 pb-4 pt-3">
+        <div className="px-3.5 pb-3.5 pt-2.5">
           {loading && !data && (
             <div className="flex items-center gap-2 py-2 text-sm text-slate-500">
               <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />
@@ -113,7 +113,7 @@ export default function AllBuildingsBrowser({
                 <button
                   onClick={() => loadPage(data.page - 1)}
                   disabled={data.page <= 1 || loading}
-                  className="cursor-pointer rounded-full border border-slate-200 px-3 py-1.5 font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="cursor-pointer rounded-full border border-slate-200 px-2.5 py-1 font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Previous
                 </button>
@@ -123,7 +123,7 @@ export default function AllBuildingsBrowser({
                 <button
                   onClick={() => loadPage(data.page + 1)}
                   disabled={data.page >= data.totalPages || loading}
-                  className="cursor-pointer rounded-full border border-slate-200 px-3 py-1.5 font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="cursor-pointer rounded-full border border-slate-200 px-2.5 py-1 font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Next
                 </button>

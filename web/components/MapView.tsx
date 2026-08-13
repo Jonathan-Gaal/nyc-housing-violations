@@ -94,7 +94,7 @@ export default function MapView({
           </CircleMarker>
         ))}
       </MapContainer>
-      <div className="flex items-center gap-2 border-t border-slate-100 bg-slate-50 px-4 py-2 text-xs text-slate-500">
+      <div className="flex items-center gap-2 border-t border-slate-100 bg-slate-50 px-3.5 py-1.5 text-xs text-slate-500">
         <span
           className="h-2.5 w-2.5 rounded-full"
           style={{ backgroundColor: computeMarkerColor(0, 1) }}

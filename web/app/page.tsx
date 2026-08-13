@@ -48,7 +48,7 @@ function StatCard({
   tone?: "default" | "danger";
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 text-center shadow-sm">
+    <div className="rounded-xl border border-slate-200 bg-white p-3 text-center shadow-sm">
       <div className={`text-2xl font-bold ${tone === "danger" ? "text-red-600" : "text-slate-900"}`}>
         {value}
       </div>
@@ -110,7 +110,7 @@ export default function Home() {
 
       {/* Header */}
       <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur">
-        <div className="mx-auto flex max-w-3xl items-center gap-2 px-4 py-3">
+        <div className="mx-auto flex max-w-3xl items-center gap-2 px-4 py-2.5">
           <HouseMarkIcon />
           <span className="text-lg font-bold tracking-tight text-slate-900">Open Violation NYC</span>
           <span className="ml-auto hidden text-xs text-slate-400 sm:block">
@@ -121,7 +121,7 @@ export default function Home() {
 
       {/* Hero + search */}
       <section className="border-b border-slate-200 bg-gradient-to-b from-blue-50 to-white">
-        <div className="mx-auto max-w-3xl px-4 py-10 text-center">
+        <div className="mx-auto max-w-3xl px-4 py-8 text-center">
           <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
             Know before you sign the lease
           </h1>
@@ -146,7 +146,7 @@ export default function Home() {
                 value={zipInput}
                 onChange={(e) => setZipInput(e.target.value)}
                 placeholder="Enter a zip code, e.g. 11106"
-                className={`w-full rounded-full border bg-white py-2.5 pl-10 pr-4 text-sm shadow-sm outline-none focus:ring-2 ${
+                className={`w-full rounded-full border bg-white py-2 pl-10 pr-4 text-sm shadow-sm outline-none focus:ring-2 ${
                   hasNonDigitInput
                     ? "border-red-300 focus:border-red-500 focus:ring-red-100"
                     : "border-slate-300 focus:border-blue-500 focus:ring-blue-100"
@@ -157,7 +157,7 @@ export default function Home() {
             <button
               type="submit"
               disabled={loading}
-              className="cursor-pointer rounded-full bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="cursor-pointer rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? "Searching…" : "Search"}
             </button>
@@ -173,15 +173,15 @@ export default function Home() {
         </div>
       </section>
 
-      <main className="mx-auto max-w-6xl px-4 py-8">
+      <main className="mx-auto max-w-6xl px-4 py-6">
         {error && (
-          <div className="mx-auto mb-6 max-w-3xl flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="mx-auto mb-6 max-w-3xl flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700">
             {error}
           </div>
         )}
 
         {!hasSearched && !error && (
-          <div className="mx-auto max-w-3xl rounded-xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center text-slate-500">
+          <div className="mx-auto max-w-3xl rounded-xl border border-dashed border-slate-300 bg-white px-5 py-9 text-center text-slate-500">
             Try a New York City zip code above to see how buildings in that area
             are rated.
           </div>
@@ -205,11 +205,11 @@ export default function Home() {
 
             {buildings.length === 0 ? (
               isKnownNycZip(searchedZip) ? (
-                <div className="mx-auto max-w-3xl rounded-xl border border-emerald-200 bg-emerald-50 px-6 py-8 text-center text-emerald-800">
+                <div className="mx-auto max-w-3xl rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-6 text-center text-emerald-800">
                   No open violations found for zip {searchedZip}. Nice.
                 </div>
               ) : (
-                <div className="mx-auto max-w-3xl rounded-xl border border-amber-200 bg-amber-50 px-6 py-8 text-center text-amber-800">
+                <div className="mx-auto max-w-3xl rounded-xl border border-amber-200 bg-amber-50 px-5 py-6 text-center text-amber-800">
                   <p className="font-semibold">No such zip code</p>
                   <p className="mt-1 text-sm">
                     &quot;{searchedZip}&quot; doesn&apos;t appear to be a recognized NYC zip code —
@@ -242,7 +242,7 @@ export default function Home() {
         )}
       </main>
 
-      <footer className="border-t border-slate-200 py-6 text-center text-xs text-slate-400">
+      <footer className="border-t border-slate-200 py-5 text-center text-xs text-slate-400">
         Violation data from NYC Open Data (HPD). Ratings are calculated
         deterministically from violation count, age, and severity — not by AI.
       </footer>

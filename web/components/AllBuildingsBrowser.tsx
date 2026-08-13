@@ -99,7 +99,11 @@ export default function AllBuildingsBrowser({
             // legal boilerplate) stretches into single lines 1000+px wide
             // instead of wrapping/truncating like it does in the sidebar.
             <div className="mx-auto max-w-2xl">
-              <div className="flex flex-col gap-3">
+              {/* Capped to roughly half the sidebar top-10 list's 600px —
+                  at PAGE_SIZE=20 (web/app/api/buildings/all/route.ts)
+                  buildings, an unbounded list here pushed the whole page to
+                  several thousand pixels tall. */}
+              <div className="flex max-h-[300px] flex-col gap-3 overflow-y-auto pr-1">
                 {data.buildings.map((b) => (
                   <BuildingCard key={b.building_id} building={b} onViewOnMap={onViewOnMap} />
                 ))}

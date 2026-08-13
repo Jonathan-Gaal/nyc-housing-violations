@@ -10,35 +10,7 @@
 // reaching loadIntoDb, never silently coerced.
 import type { Pool } from 'pg';
 import { getPool } from '@/lib/pgClient';
-import { fetchOpenViolations, isValidSocrataRow, type SocrataViolationRow } from '@/lib/socrata';
-import { loadIntoDb } from '@/lib/loadIntoDb';
-import type { RawViolationRow } from '@/lib/csvLoader';
-
-// Maps the Socrata response shape (lowercase keys, all strings) onto the
-// loader's expected RawViolationRow shape — per
-// context/API_INTEGRATION.md §6's documented key mapping (e.g.
-// `lowhousenumber` -> `LowHouseNumber`).
-function toRawViolationRow(row: SocrataViolationRow): RawViolationRow {
-  return {
-    ViolationID: row.violationid,
-    BuildingID: row.buildingid,
-    Postcode: row.zip,
-    HouseNumber: row.housenumber ?? row.lowhousenumber,
-    LowHouseNumber: row.lowhousenumber,
-    HighHouseNumber: row.highhousenumber,
-    StreetName: row.streetname,
-    InspectionDate: row.inspectiondate,
-    CurrentStatus: row.currentstatus,
-    ViolationStatus: row.violationstatus,
-    RentImpairing: row.rentimpairing,
-    NOVDescription: row.novdescription,
-    NovType: row.novtype,
-    Latitude: row.latitude,
-    Longitude: row.longitude,
-    BIN: row.bin,
-    BBL: row.bbl,
-  };
-}
+import { fetchAndLoadZip } from '@/lib/socrata';
 
 interface ZipSyncResult {
   zip: string;
@@ -81,21 +53,7 @@ export async function GET(request: Request) {
 
   for (const zip of zips) {
     try {
-      const rawRows = await fetchOpenViolations(zip);
-
-      const validRows: RawViolationRow[] = [];
-      let skippedRows = 0;
-      for (const row of rawRows) {
-        if (isValidSocrataRow(row)) {
-          validRows.push(toRawViolationRow(row));
-        } else {
-          // Schema drift: logged, never silently coerced into the loader.
-          skippedRows += 1;
-          console.error(`Socrata schema mismatch for zip ${zip}: row missing required fields`, row);
-        }
-      }
-
-      const { buildingsLoaded, violationsLoaded } = await loadIntoDb(pool, validRows);
+      const { buildingsLoaded, violationsLoaded, skippedRows } = await fetchAndLoadZip(pool, zip);
       results.push({ zip, status: 'ok', buildingsLoaded, violationsLoaded, skippedRows });
     } catch (error) {
       // Fail-soft per-zip (specs/008 Edge Cases + FORCES #4): one zip's

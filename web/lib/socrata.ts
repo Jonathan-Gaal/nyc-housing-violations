@@ -8,7 +8,10 @@
 // constant baked into every query. Zip is the only dynamic SoQL input, and
 // it is validated with the project's standing /^\d{5}$/ pattern before it
 // ever touches the query string.
+import type { Pool } from 'pg';
 import { validateZipCode } from './validation';
+import type { RawViolationRow } from './csvLoader';
+import { loadIntoDb } from './loadIntoDb';
 
 const DATASET_ID = 'wvxf-dwi5';
 const BASE_URL = `https://data.cityofnewyork.us/api/v3/views/${DATASET_ID}/query.json`;
@@ -206,4 +209,59 @@ export async function fetchOpenViolations(zip: string): Promise<SocrataViolation
   }
 
   return allRows;
+}
+
+// Maps the Socrata response shape (lowercase keys, all strings) onto the
+// loader's expected RawViolationRow shape — per
+// context/API_INTEGRATION.md §6's documented key mapping (e.g.
+// `lowhousenumber` -> `LowHouseNumber`). Shared by the cron sync route and
+// the on-demand zip-search seed path below.
+export function toRawViolationRow(row: SocrataViolationRow): RawViolationRow {
+  return {
+    ViolationID: row.violationid,
+    BuildingID: row.buildingid,
+    Postcode: row.zip,
+    HouseNumber: row.housenumber ?? row.lowhousenumber,
+    LowHouseNumber: row.lowhousenumber,
+    HighHouseNumber: row.highhousenumber,
+    StreetName: row.streetname,
+    InspectionDate: row.inspectiondate,
+    CurrentStatus: row.currentstatus,
+    ViolationStatus: row.violationstatus,
+    RentImpairing: row.rentimpairing,
+    NOVDescription: row.novdescription,
+    NovType: row.novtype,
+    Latitude: row.latitude,
+    Longitude: row.longitude,
+    BIN: row.bin,
+    BBL: row.bbl,
+  };
+}
+
+// On-demand seed path for a zip a user just searched that has no rows in
+// Postgres yet (spec 017): fetches it live from Socrata, validates each row
+// against the dataset's required-field shape (schema drift is logged and
+// skipped, never silently coerced — same contract as the cron sync route),
+// and persists it before the caller re-reads from the DB. Fail-soft: a
+// Socrata error here is the caller's to handle, not swallowed, since an
+// empty zip search result is the fallback either way.
+export async function fetchAndLoadZip(
+  pool: Pool,
+  zip: string
+): Promise<{ buildingsLoaded: number; violationsLoaded: number; skippedRows: number }> {
+  const rawRows = await fetchOpenViolations(zip);
+
+  const validRows: RawViolationRow[] = [];
+  let skippedRows = 0;
+  for (const row of rawRows) {
+    if (isValidSocrataRow(row)) {
+      validRows.push(toRawViolationRow(row));
+    } else {
+      skippedRows += 1;
+      console.error(`Socrata schema mismatch for zip ${zip}: row missing required fields`, row);
+    }
+  }
+
+  const { buildingsLoaded, violationsLoaded } = await loadIntoDb(pool, validRows);
+  return { buildingsLoaded, violationsLoaded, skippedRows };
 }

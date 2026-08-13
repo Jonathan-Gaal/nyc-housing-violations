@@ -4,6 +4,8 @@ import { useState } from "react";
 import dynamic from "next/dynamic";
 import type { BuildingRow, ViolationRow } from "@/lib/queries";
 import { ratingTier, ratingLabel, humanizeDaysOpen } from "@/lib/format";
+import { ratingToStars } from "@/lib/starRating";
+import StarRating from "@/components/StarRating";
 
 // Chart.js is a heavy library — dynamically imported (ssr: false) so it's
 // only pulled into the client bundle once a building card is expanded, same
@@ -23,14 +25,13 @@ const TIER_STYLES: Record<string, { badge: string; ring: string }> = {
 function RatingBadge({ rating }: { rating: number }) {
   const tier = ratingTier(rating);
   const styles = TIER_STYLES[tier];
+  const stars = ratingToStars(rating);
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${styles.badge}`}
-    >
-      <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
-        <path d="M10 1.5l2.6 5.6 6.1.6-4.6 4.1 1.3 6-5.4-3.1-5.4 3.1 1.3-6L1.3 7.7l6.1-.6L10 1.5z" />
-      </svg>
-      {rating.toFixed(1)} · {ratingLabel(rating)}
+    <span className="inline-flex items-center gap-2">
+      <StarRating rating={rating} />
+      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${styles.badge}`}>
+        {stars.toFixed(1)} · {ratingLabel(rating)}
+      </span>
     </span>
   );
 }

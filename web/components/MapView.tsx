@@ -2,15 +2,22 @@
 
 import { useEffect, useRef } from "react";
 import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
-import type { Map as LeafletMap } from "leaflet";
+import { latLngBounds, type Map as LeafletMap } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { HeatmapPoint } from "@/lib/queries";
 import { computeMarkerColor, computeMarkerRadius } from "@/lib/mapMarkers";
 
 // How far in to fly when a "See on map" button targets a specific building
-// — well past the default zip-level zoom (15) so the target building is
-// unambiguous among its neighbors.
+// — well past the zip-fit zoom so the target building is unambiguous among
+// its neighbors.
 const FOCUS_ZOOM = 18;
+
+// Caps how far fitBounds is allowed to zoom in for a zip whose buildings are
+// tightly clustered (or a zip with only one point, where the bounds are a
+// single coordinate) — without this a small/dense zip would zoom in past
+// street level instead of still showing the surrounding region.
+const ZIP_FIT_MAX_ZOOM = 16;
+const ZIP_FIT_PADDING: [number, number] = [32, 32];
 
 export interface MapFocusPoint {
   lat: number;
@@ -35,6 +42,17 @@ export default function MapView({
       mapRef.current.flyTo([focusPoint.lat, focusPoint.lng], FOCUS_ZOOM, { duration: 1 });
     }
   }, [focusPoint]);
+
+  // Re-frames the map to the searched zip's own spread of buildings — a
+  // dense zip fits tighter, a spread-out one fits wider — instead of a fixed
+  // zoom level that's too close for a large zip and too far for a small one.
+  // `points` gets a new array reference on every search (app/page.tsx's
+  // setPoints), so this reruns on each zip search, not just on mount.
+  useEffect(() => {
+    if (!mapRef.current || points.length === 0) return;
+    const bounds = latLngBounds(points.map((p): [number, number] => [p.latitude, p.longitude]));
+    mapRef.current.fitBounds(bounds, { padding: ZIP_FIT_PADDING, maxZoom: ZIP_FIT_MAX_ZOOM });
+  }, [points]);
 
   if (points.length === 0) {
     return (

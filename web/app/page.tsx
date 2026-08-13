@@ -6,6 +6,7 @@ import BuildingCard from "@/components/BuildingCard";
 import AllBuildingsBrowser from "@/components/AllBuildingsBrowser";
 import type { BuildingRow, ZipSummary, HeatmapPoint } from "@/lib/queries";
 import { neighborhoodForZip } from "@/lib/zipNeighborhoods";
+import { isKnownNycZip } from "@/lib/nycZips";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 const LoadingGame = dynamic(() => import("@/components/LoadingGame"), { ssr: false });
@@ -64,6 +65,10 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+
+  const hasNonDigitInput = zipInput.length > 0 && !/^\d*$/.test(zipInput);
+  const isCompleteZipFormat = /^\d{5}$/.test(zipInput);
+  const isRecognizedZip = isCompleteZipFormat && isKnownNycZip(zipInput);
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -132,7 +137,11 @@ export default function Home() {
                 value={zipInput}
                 onChange={(e) => setZipInput(e.target.value)}
                 placeholder="Enter a zip code, e.g. 11106"
-                className="w-full rounded-full border border-slate-300 bg-white py-2.5 pl-10 pr-4 text-sm shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                className={`w-full rounded-full border bg-white py-2.5 pl-10 pr-4 text-sm shadow-sm outline-none focus:ring-2 ${
+                  hasNonDigitInput
+                    ? "border-red-300 focus:border-red-500 focus:ring-red-100"
+                    : "border-slate-300 focus:border-blue-500 focus:ring-blue-100"
+                }`}
                 maxLength={5}
               />
             </div>
@@ -144,6 +153,14 @@ export default function Home() {
               {loading ? "Searching…" : "Search"}
             </button>
           </form>
+          {hasNonDigitInput && (
+            <p className="mt-2 text-xs font-medium text-red-600">Zip code must be numbers only</p>
+          )}
+          {isCompleteZipFormat && !isRecognizedZip && (
+            <p className="mt-2 text-xs font-medium text-amber-600">
+              Doesn&apos;t look like a recognized NYC zip code — you can still search.
+            </p>
+          )}
         </div>
       </section>
 
@@ -178,9 +195,19 @@ export default function Home() {
             </div>
 
             {buildings.length === 0 ? (
-              <div className="mx-auto max-w-3xl rounded-xl border border-emerald-200 bg-emerald-50 px-6 py-8 text-center text-emerald-800">
-                No open violations found for zip {searchedZip}. Nice.
-              </div>
+              isKnownNycZip(searchedZip) ? (
+                <div className="mx-auto max-w-3xl rounded-xl border border-emerald-200 bg-emerald-50 px-6 py-8 text-center text-emerald-800">
+                  No open violations found for zip {searchedZip}. Nice.
+                </div>
+              ) : (
+                <div className="mx-auto max-w-3xl rounded-xl border border-amber-200 bg-amber-50 px-6 py-8 text-center text-amber-800">
+                  <p className="font-semibold">No such zip code</p>
+                  <p className="mt-1 text-sm">
+                    &quot;{searchedZip}&quot; doesn&apos;t appear to be a recognized NYC zip code —
+                    double-check it and try again.
+                  </p>
+                </div>
+              )
             ) : (
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-[360px_1fr]">
                 <aside className="order-2 lg:order-1">

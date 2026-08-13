@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NYC Building Violations",
+  title: "Open Violation NYC",
   description: "Search HPD housing violations by zip code",
 };
 

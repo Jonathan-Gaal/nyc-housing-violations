@@ -96,7 +96,7 @@ export default function Home() {
       <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center gap-2 px-4 py-3">
           <HouseMarkIcon />
-          <span className="text-lg font-bold tracking-tight text-slate-900">HomeCheck NYC</span>
+          <span className="text-lg font-bold tracking-tight text-slate-900">Open Violation NYC</span>
           <span className="ml-auto hidden text-xs text-slate-400 sm:block">
             Data: NYC Dept. of Housing Preservation &amp; Development
           </span>

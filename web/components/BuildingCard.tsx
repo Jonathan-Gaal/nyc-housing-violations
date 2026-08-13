@@ -6,6 +6,7 @@ import type { BuildingRow, ViolationRow } from "@/lib/queries";
 import { ratingTier, ratingLabel, humanizeDaysOpen, type RatingTier } from "@/lib/format";
 import { ratingToStars } from "@/lib/starRating";
 import StarRating from "@/components/StarRating";
+import type { LandlordInfo } from "@/lib/landlords";
 
 // Chart.js is a heavy library — dynamically imported (ssr: false) so it's
 // only pulled into the client bundle once a building card is expanded, same
@@ -67,6 +68,7 @@ function WarningIcon() {
 export default function BuildingCard({ building }: { building: BuildingRow }) {
   const [expanded, setExpanded] = useState(false);
   const [violations, setViolations] = useState<ViolationRow[] | null>(null);
+  const [landlord, setLandlord] = useState<LandlordInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -87,6 +89,7 @@ export default function BuildingCard({ building }: { building: BuildingRow }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to load violations");
       setViolations(data.violations);
+      setLandlord(data.landlord ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load violations");
     } finally {
@@ -143,6 +146,28 @@ export default function BuildingCard({ building }: { building: BuildingRow }) {
             </div>
           )}
           {error && <p className="text-sm text-red-600">{error}</p>}
+          {!loading && !error && violations !== null && (
+            <div className="mb-3 rounded-lg bg-slate-50 px-3 py-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Registered Owner
+              </p>
+              {landlord ? (
+                <>
+                  <p className="text-sm font-medium text-slate-800">
+                    {landlord.ownerName ?? "Name not on file"}
+                  </p>
+                  {landlord.officerName && landlord.officerName !== landlord.ownerName && (
+                    <p className="text-xs text-slate-500">Officer: {landlord.officerName}</p>
+                  )}
+                  {landlord.agentName && (
+                    <p className="text-xs text-slate-500">Agent: {landlord.agentName}</p>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-slate-500">No HPD registration on file.</p>
+              )}
+            </div>
+          )}
           {!loading && !error && violations && violations.length > 0 && (
             <ViolationTimeline violations={violations} />
           )}

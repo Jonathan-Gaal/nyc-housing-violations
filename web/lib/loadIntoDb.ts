@@ -20,14 +20,14 @@ const UPSERT_BUILDINGS_SQL = `
     house_number_low, house_number_high, house_number_display,
     latitude, longitude, violation_count, rent_impairing_count,
     avg_days_open, percent_dead_end, percent_reissued, recurring_issue_count,
-    raw_score, rating, last_violation_date
+    raw_score, rating, last_violation_date, registration_id
   )
   SELECT * FROM UNNEST(
     $1::text[], $2::text[], $3::text[], $4::text[], $5::text[],
     $6::text[], $7::text[], $8::text[],
     $9::double precision[], $10::double precision[], $11::integer[], $12::integer[],
     $13::integer[], $14::double precision[], $15::double precision[], $16::integer[],
-    $17::double precision[], $18::double precision[], $19::text[]
+    $17::double precision[], $18::double precision[], $19::text[], $20::text[]
   )
   ON CONFLICT (building_id) DO UPDATE SET
     bin = excluded.bin,
@@ -47,7 +47,8 @@ const UPSERT_BUILDINGS_SQL = `
     recurring_issue_count = excluded.recurring_issue_count,
     raw_score = excluded.raw_score,
     rating = excluded.rating,
-    last_violation_date = excluded.last_violation_date
+    last_violation_date = excluded.last_violation_date,
+    registration_id = excluded.registration_id
 `;
 
 const UPSERT_VIOLATIONS_SQL = `
@@ -157,6 +158,7 @@ export async function loadIntoDb(
         scores,
         scores,
         buildings.map((b) => b.last_violation_date),
+        buildings.map((b) => b.registration_id),
       ]);
     }
 

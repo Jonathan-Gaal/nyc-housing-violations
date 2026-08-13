@@ -25,6 +25,10 @@ export interface RawViolationRow {
   Longitude: string;
   BIN: string;
   BBL: string;
+  // Joins to HPD's Registration Contacts dataset (feu5-w2e2) for owner/
+  // landlord info — lib/landlords.ts. Optional: unregistered buildings
+  // (or CSV rows predating this field) won't have one.
+  RegistrationID?: string;
 }
 
 export interface ViolationRecord {
@@ -61,6 +65,7 @@ export interface BuildingRecord {
   percent_dead_end: number; // 0-100
   percent_reissued: number; // 0-100
   recurring_issue_count: number;
+  registration_id: string | null;
 }
 
 function daysBetween(dateStr: string, asOf: Date): number {
@@ -107,6 +112,7 @@ export function aggregateBuildings(
       nov_type_counts: Map<string, number>;
       nov_description_counts: Map<string, number>;
       last_violation_date: string;
+      registration_id: string | null;
     }
   >();
 
@@ -149,6 +155,7 @@ export function aggregateBuildings(
         nov_type_counts: new Map([[row.NovType, 1]]),
         nov_description_counts: new Map([[row.NOVDescription, 1]]),
         last_violation_date: row.InspectionDate,
+        registration_id: row.RegistrationID || null,
       });
     } else {
       existing.violation_count += 1;
@@ -162,6 +169,12 @@ export function aggregateBuildings(
       );
       if (row.InspectionDate > existing.last_violation_date) {
         existing.last_violation_date = row.InspectionDate;
+      }
+      // Defensive: registration_id should be consistent per building, but
+      // if the first row seen happened to lack it, backfill from a later
+      // row that has it rather than staying null.
+      if (!existing.registration_id && row.RegistrationID) {
+        existing.registration_id = row.RegistrationID;
       }
     }
   }
@@ -191,6 +204,7 @@ export function aggregateBuildings(
         percent_dead_end: Math.round((b.dead_end_count / b.violation_count) * 1000) / 10,
         percent_reissued: Math.round((reissuedCount / b.violation_count) * 1000) / 10,
         recurring_issue_count: recurringIssueCount,
+        registration_id: b.registration_id,
       };
     }
   );

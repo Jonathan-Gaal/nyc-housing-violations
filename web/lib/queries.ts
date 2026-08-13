@@ -165,6 +165,19 @@ export async function getViolationsForBuilding(
   return result.rows;
 }
 
+// Feeds lib/landlords.ts's owner lookup, which needs a building's
+// registration_id before it can query HPD's Registration Contacts dataset.
+export async function getBuildingRegistrationId(
+  pool: Pool,
+  buildingId: string
+): Promise<string | null> {
+  const result = await pool.query<{ registration_id: string | null }>(
+    'SELECT registration_id FROM buildings WHERE building_id = $1',
+    [buildingId]
+  );
+  return result.rows[0]?.registration_id ?? null;
+}
+
 interface MaxViolationsRow {
   maxViolations: string | null;
 }

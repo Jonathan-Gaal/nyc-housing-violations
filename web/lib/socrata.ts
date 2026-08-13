@@ -171,9 +171,11 @@ function sleep(ms: number): Promise<void> {
 }
 
 // Hand-rolled retry/backoff (no dependency — see spec Constraints): retries
-// a single page fetch up to MAX_RETRIES times with exponential backoff
-// before giving up on that page.
-async function fetchPageWithRetry(url: string): Promise<SocrataViolationRow[]> {
+// a single request up to MAX_RETRIES times with exponential backoff before
+// giving up. Generic over the parsed-array element type so lib/landlords.ts
+// can reuse it against a different Socrata dataset (feu5-w2e2) instead of
+// duplicating the timeout/retry/app-token handling.
+export async function fetchJsonArrayWithRetry<T>(url: string): Promise<T[]> {
   let lastError: unknown;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
@@ -200,7 +202,7 @@ async function fetchPageWithRetry(url: string): Promise<SocrataViolationRow[]> {
         throw new Error('Socrata schema mismatch: response body is not an array');
       }
 
-      return page as SocrataViolationRow[];
+      return page as T[];
     } catch (error) {
       lastError = error;
       if (attempt < MAX_RETRIES) {
@@ -235,7 +237,7 @@ export async function fetchOpenViolations(
     const pages = await Promise.all(
       Array.from({ length: maxPages }, (_, i) => {
         const url = buildQueryUrl({ zip, limit: PAGE_SIZE, offset: i * PAGE_SIZE });
-        return fetchPageWithRetry(url);
+        return fetchJsonArrayWithRetry<SocrataViolationRow>(url);
       })
     );
     return pages.flat();
@@ -248,7 +250,7 @@ export async function fetchOpenViolations(
 
   while (true) {
     const url = buildQueryUrl({ zip, limit: PAGE_SIZE, offset });
-    const page = await fetchPageWithRetry(url);
+    const page = await fetchJsonArrayWithRetry<SocrataViolationRow>(url);
     allRows.push(...page);
 
     if (page.length < PAGE_SIZE) break; // last page
@@ -282,6 +284,7 @@ export function toRawViolationRow(row: SocrataViolationRow): RawViolationRow {
     Longitude: row.longitude,
     BIN: row.bin,
     BBL: row.bbl,
+    RegistrationID: row.registrationid,
   };
 }
 

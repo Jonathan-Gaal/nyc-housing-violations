@@ -60,7 +60,7 @@ export default function Home() {
   const [summary, setSummary] = useState<ZipSummary | null>(null);
   const [buildings, setBuildings] = useState<BuildingRow[]>([]);
   const [points, setPoints] = useState<HeatmapPoint[]>([]);
-  const [view, setView] = useState<View>("list");
+  const [view, setView] = useState<View>("map");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);

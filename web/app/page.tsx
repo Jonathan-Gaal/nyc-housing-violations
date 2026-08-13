@@ -3,7 +3,9 @@
 import { useState } from "react";
 import dynamic from "next/dynamic";
 import BuildingCard from "@/components/BuildingCard";
+import AllBuildingsBrowser from "@/components/AllBuildingsBrowser";
 import type { BuildingRow, ZipSummary, HeatmapPoint } from "@/lib/queries";
+import { neighborhoodForZip } from "@/lib/zipNeighborhoods";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
@@ -180,7 +182,10 @@ export default function Home() {
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-[360px_1fr]">
                 <aside className="order-2 lg:order-1">
                   <h2 className="mb-3 text-sm font-semibold text-slate-700">
-                    Worst-rated buildings in {searchedZip}
+                    Top 10 worst buildings in{" "}
+                    {neighborhoodForZip(searchedZip)
+                      ? `${neighborhoodForZip(searchedZip)}, ${searchedZip}`
+                      : `zip ${searchedZip}`}
                   </h2>
                   <div className="flex flex-col gap-3 lg:max-h-[600px] lg:overflow-y-auto lg:pr-1">
                     {buildings.map((b) => (
@@ -190,6 +195,7 @@ export default function Home() {
                 </aside>
                 <div className="order-1 lg:order-2">
                   <MapView points={points} />
+                  <AllBuildingsBrowser zip={searchedZip} />
                 </div>
               </div>
             )}

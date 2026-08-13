@@ -94,6 +94,50 @@ export async function getZipSummaryAndTopBuildings(
   };
 }
 
+export interface PaginatedBuildings {
+  buildings: BuildingRow[];
+  page: number;
+  pageSize: number;
+  totalBuildings: number;
+  totalPages: number;
+}
+
+// Powers the "browse all buildings" component (below the top-10 sidebar,
+// which getZipSummaryAndTopBuildings already covers) — same worst-first
+// ordering, but paginated across the full result set instead of capped at 10.
+export async function getPaginatedBuildingsForZip(
+  pool: Pool,
+  zip: string,
+  page: number,
+  pageSize: number
+): Promise<PaginatedBuildings> {
+  const totalResult = await pool.query<{ totalBuildings: string }>(
+    'SELECT COUNT(*) as "totalBuildings" FROM buildings WHERE postcode = $1',
+    [zip]
+  );
+  const totalBuildings = Number(totalResult.rows[0].totalBuildings);
+  const totalPages = Math.max(1, Math.ceil(totalBuildings / pageSize));
+  const clampedPage = Math.min(Math.max(1, page), totalPages);
+  const offset = (clampedPage - 1) * pageSize;
+
+  const buildingsResult = await pool.query<BuildingRowRaw>(
+    `SELECT building_id, street_name, postcode, house_number_display, latitude, longitude,
+            violation_count, rent_impairing_count, avg_days_open,
+            percent_dead_end, percent_reissued, recurring_issue_count,
+            rating, last_violation_date
+     FROM buildings WHERE postcode = $1 ORDER BY rating ASC, violation_count DESC LIMIT $2 OFFSET $3`,
+    [zip, pageSize, offset]
+  );
+
+  return {
+    buildings: buildingsResult.rows.map(withScoringBreakdown),
+    page: clampedPage,
+    pageSize,
+    totalBuildings,
+    totalPages,
+  };
+}
+
 export interface ViolationRow {
   violation_id: string;
   house_number: string;

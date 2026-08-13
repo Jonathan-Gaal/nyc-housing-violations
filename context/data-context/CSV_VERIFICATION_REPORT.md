@@ -1,5 +1,7 @@
 # CSV Verification Report
 
+> **⚠ Correction (2026-08-11):** This report assumed the CSV was pure zip 11106. It isn't — it also contains a handful of rows for 11429 and 10009 (confirmed 2026-08-04 during build, `SESSION_STATE.md`). The stats below (10,467 violations / 826 buildings) are totals across *all* zips in the file, not 11106 alone (11106 alone is 818 buildings / ~10,283 violations as of the latest load). `web/lib/loadIntoDb.ts` and `web/lib/queries.ts` filter by `postcode` defensively rather than trusting the file to be single-zip — don't assume file scope in future data work either.
+
 ## File Analyzed
 **Housing_Maintenance_Code_Violations_20260803.csv**
 

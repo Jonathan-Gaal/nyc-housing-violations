@@ -1,5 +1,7 @@
 # Code Snippets - NYC Building Violations App
 
+> **⚠ STATUS (2026-08-11):** This is pre-build reference material (Postgres-based); the actual app in `web/` uses SQLite and its own loader (`web/lib/csvLoader.ts`, `web/lib/loadIntoDb.ts`), not this code directly. One specific bug to flag if anyone copies from here: the Data Loader section below uses `parseInt(row.HouseNumber)` on NYC block-lot house numbers (e.g. "14-31"), which truncates to `14` and silently corrupts every multi-entrance address range. `DATA_LOADER_CORRECTED.md` in this same folder fixes it (keeps house numbers as text); `web/lib/csvLoader.ts` is the actual, currently-running fix. See `SESSION_STATE.md`'s `[2026-08-04] build` entry for how this was found.
+
 ## Table of Contents
 1. [Database Schema](#database-schema)
 2. [Data Loader](#data-loader)
@@ -156,6 +158,10 @@ async function loadData() {
     fs.createReadStream(csvPath)
       .pipe(csv())
       .on('data', (row) => {
+        // ⚠ BUG (see status note at top of file): parseInt() truncates NYC
+        // block-lot house numbers ("14-31" -> 14), corrupting multi-entrance
+        // addresses. Use DATA_LOADER_CORRECTED.md's approach instead — keep
+        // LowHouseNumber/HighHouseNumber as text end-to-end.
         const houseNumberNum = parseInt(row.HouseNumber) || 0;
 
         violations.push({

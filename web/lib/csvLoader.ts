@@ -57,6 +57,10 @@ export interface BuildingRecord {
   rent_impairing_count: number;
   avg_days_open: number;
   last_violation_date: string;
+  // Composite-scoring inputs (specs/001-zip-search-and-buildings-summary.md)
+  percent_dead_end: number; // 0-100
+  percent_reissued: number; // 0-100
+  recurring_issue_count: number;
 }
 
 function daysBetween(dateStr: string, asOf: Date): number {
@@ -67,6 +71,17 @@ function daysBetween(dateStr: string, asOf: Date): number {
 
 function houseNumberDisplay(low: string, high: string): string {
   return low === high ? low : `${low} to ${high}`;
+}
+
+// specs/001-zip-search-and-buildings-summary.md defines percentDeadEnd as
+// violations whose status is "NOV SENT OUT", "NOT COMPLIED WITH", or "NO
+// ACCESS TO INSPECT". The real CurrentStatus values (verified against the
+// CSV) don't include that exact third string — the closest matches are
+// "FIRST NO ACCESS TO RE-INSPECT VIOLATION" / "SECOND NO ACCESS TO
+// RE-INSPECT VIOLATION" — so any status containing "NO ACCESS" counts.
+const DEAD_END_STATUSES = new Set(['NOV SENT OUT', 'NOT COMPLIED WITH']);
+function isDeadEndStatus(status: string): boolean {
+  return DEAD_END_STATUSES.has(status) || status.includes('NO ACCESS');
 }
 
 export function aggregateBuildings(
@@ -88,6 +103,9 @@ export function aggregateBuildings(
       violation_count: number;
       rent_impairing_count: number;
       days_open_sum: number;
+      dead_end_count: number;
+      nov_type_counts: Map<string, number>;
+      nov_description_counts: Map<string, number>;
       last_violation_date: string;
     }
   >();
@@ -111,6 +129,8 @@ export function aggregateBuildings(
       days_open: daysOpen,
     });
 
+    const isDeadEnd = isDeadEndStatus(row.CurrentStatus) ? 1 : 0;
+
     const existing = byBuilding.get(row.BuildingID);
     if (!existing) {
       byBuilding.set(row.BuildingID, {
@@ -125,12 +145,21 @@ export function aggregateBuildings(
         violation_count: 1,
         rent_impairing_count: rentImpairing,
         days_open_sum: daysOpen,
+        dead_end_count: isDeadEnd,
+        nov_type_counts: new Map([[row.NovType, 1]]),
+        nov_description_counts: new Map([[row.NOVDescription, 1]]),
         last_violation_date: row.InspectionDate,
       });
     } else {
       existing.violation_count += 1;
       existing.rent_impairing_count += rentImpairing;
       existing.days_open_sum += daysOpen;
+      existing.dead_end_count += isDeadEnd;
+      existing.nov_type_counts.set(row.NovType, (existing.nov_type_counts.get(row.NovType) ?? 0) + 1);
+      existing.nov_description_counts.set(
+        row.NOVDescription,
+        (existing.nov_description_counts.get(row.NOVDescription) ?? 0) + 1
+      );
       if (row.InspectionDate > existing.last_violation_date) {
         existing.last_violation_date = row.InspectionDate;
       }
@@ -138,22 +167,32 @@ export function aggregateBuildings(
   }
 
   const buildings: BuildingRecord[] = Array.from(byBuilding.entries()).map(
-    ([building_id, b]) => ({
-      building_id,
-      bin: b.bin,
-      bbl: b.bbl,
-      street_name: b.street_name,
-      postcode: b.postcode,
-      house_number_low: b.house_number_low,
-      house_number_high: b.house_number_high,
-      house_number_display: houseNumberDisplay(b.house_number_low, b.house_number_high),
-      latitude: b.latitude,
-      longitude: b.longitude,
-      violation_count: b.violation_count,
-      rent_impairing_count: b.rent_impairing_count,
-      avg_days_open: Math.round(b.days_open_sum / b.violation_count),
-      last_violation_date: b.last_violation_date,
-    })
+    ([building_id, b]) => {
+      // Reissuance: occurrences of a nov_type/description beyond the first
+      // for this building count as "re-opened" — see BuildingRecord doc.
+      const reissuedCount = b.violation_count - b.nov_type_counts.size;
+      const recurringIssueCount = b.violation_count - b.nov_description_counts.size;
+
+      return {
+        building_id,
+        bin: b.bin,
+        bbl: b.bbl,
+        street_name: b.street_name,
+        postcode: b.postcode,
+        house_number_low: b.house_number_low,
+        house_number_high: b.house_number_high,
+        house_number_display: houseNumberDisplay(b.house_number_low, b.house_number_high),
+        latitude: b.latitude,
+        longitude: b.longitude,
+        violation_count: b.violation_count,
+        rent_impairing_count: b.rent_impairing_count,
+        avg_days_open: Math.round(b.days_open_sum / b.violation_count),
+        last_violation_date: b.last_violation_date,
+        percent_dead_end: Math.round((b.dead_end_count / b.violation_count) * 1000) / 10,
+        percent_reissued: Math.round((reissuedCount / b.violation_count) * 1000) / 10,
+        recurring_issue_count: recurringIssueCount,
+      };
+    }
   );
 
   return { buildings, violations };

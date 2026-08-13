@@ -29,7 +29,10 @@ export function initSchema(db: Database.Database): void {
       violation_count INTEGER NOT NULL DEFAULT 0,
       rent_impairing_count INTEGER NOT NULL DEFAULT 0,
       avg_days_open INTEGER NOT NULL DEFAULT 0,
-      rating REAL NOT NULL DEFAULT 0,
+      percent_dead_end REAL NOT NULL DEFAULT 0,
+      percent_reissued REAL NOT NULL DEFAULT 0,
+      recurring_issue_count INTEGER NOT NULL DEFAULT 0,
+      rating REAL NOT NULL DEFAULT 0, -- composite score, see lib/scoring.ts (column kept as "rating" for UI/query compat; spec 001 calls it "score")
       last_violation_date TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_buildings_postcode ON buildings(postcode);

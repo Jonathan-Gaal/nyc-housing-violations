@@ -1,6 +1,13 @@
 -- NYC Building Violations App - PostgreSQL Schema with Firebase Auth
 -- Firebase UID is used as the primary key for users (user_id TEXT)
 -- This ensures all user-related queries use the Firebase UID as the identifier
+--
+-- STATUS (2026-08-11): NOT the current schema. The MVP that actually shipped
+-- uses SQLite (see web/lib/db.ts) with no auth tables yet — this Postgres +
+-- Firebase design is deferred, unbuilt Phase 2 reference material. It also
+-- predates the fix in DATA_LOADER_CORRECTED.md/ADDRESS_RANGE_SUMMARY.md's
+-- correction note (house numbers must be TEXT, not INT) — check the tables
+-- below against that before building against them.
 
 -- ============================================================================
 -- CORE TABLES (MVP - Week 1)

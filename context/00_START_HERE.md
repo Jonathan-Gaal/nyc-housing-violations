@@ -1,5 +1,16 @@
 # Project Summary - NYC Building Violations App
 
+> **⚠ STATUS (2026-08-11): This file is the original pre-build plan and is now stale in several places.**
+> The app was actually built in `web/` with different choices than described below:
+> - **Database:** SQLite (`web/lib/db.ts`), not PostgreSQL. `schema_firebase.sql` describes a Postgres+Firebase schema that was never built — treat it as a Phase 2 reference only.
+> - **Map:** Leaflet/OpenStreetMap (`web/components/MapView.tsx`), not Mapbox GL — no API key needed.
+> - **Auth:** Not built yet. Everything is public, per this doc's own "MVP doesn't need it" note below — still true.
+> - **Framework:** Next.js 16, not 14.
+> - **Rating/scoring:** The simple 3-factor formula described below (violation count / age / rent-impairing) was superseded by a composite "landlord responsiveness" score — see `specs/001-zip-search-and-buildings-summary.md` and `web/lib/scoring.ts`.
+> - **UI:** A branded redesign ("HomeCheck NYC" — rating tiers, humanized violation age) shipped 2026-08-04; not described anywhere in `context/`. See `SESSION_STATE.md`'s `[2026-08-04] design` entry for what changed.
+>
+> Current source of truth: `../CLAUDE.md` (project instructions) and `../SESSION_STATE.md` (session ledger), not this file. Kept here as historical planning record.
+
 ## What We Built
 
 A full-stack Next.js app that helps renters and community members:

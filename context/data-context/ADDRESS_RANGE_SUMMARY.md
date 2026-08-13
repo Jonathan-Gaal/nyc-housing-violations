@@ -1,5 +1,7 @@
 # Address Range Logic Update - Multi-Entrance Buildings
 
+> **⚠ Correction (2026-08-11):** The "Schema Changes" and "Migration Notes" sections below use `INT` for `house_number_low`/`house_number_high` and `CAST(house_number AS INT)`. That's wrong — NYC block-lot house numbers ("14-31") are text, and `parseInt()`/`CAST AS INT` truncates them (e.g. "14-31" → 14), silently corrupting every multi-entrance address. This was caught during the actual build (`SESSION_STATE.md`, 2026-08-04). The built schema (`web/lib/db.ts`) uses `TEXT` for both columns, matching what `CSV_VERIFICATION_REPORT.md` and `DATA_LOADER_CORRECTED.md` already say elsewhere in this folder — this file just never got updated to match. Treat the SQL below as historical, not correct.
+
 ## Overview
 Updated schema and code to handle NYC buildings with multiple entrances/wings under a single Building Identification Number (BIN).
 

@@ -1,5 +1,7 @@
 # Corrected Data Loader - Uses CSV LowHouseNumber/HighHouseNumber Directly
 
+> **⚠ STATUS (2026-08-11):** The house-number handling here (text, not parsed to int) is correct and matches what's actually built. Two other things in this file are now superseded: (1) it targets Postgres (`pg` Pool) — the shipped app uses SQLite (`web/lib/loadIntoDb.ts`); (2) its `calculateRating()` at the bottom is the old 3-factor formula — superseded by the composite scoring in `web/lib/scoring.ts` per `specs/001-zip-search-and-buildings-summary.md`.
+
 ## The Key Insight
 
 Your CSV already has the address range built in:

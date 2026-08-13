@@ -60,6 +60,27 @@ function MarkerPopup({ building }: { building: HeatmapPoint }) {
   );
 }
 
+// Keeps the map locked to NYC — a lightly padded box around the actual 5
+// boroughs (Staten Island's SW corner ~40.496,-74.259; the Bronx's N edge
+// ~40.915; the Rockaways/JFK's E edge ~-73.70) — so panning or zooming out
+// can't wander off to, say, Los Angeles. maxBoundsViscosity=1.0 makes the
+// edge fully solid (no elastic drag past it) and minZoom stops zooming out
+// far enough to see past the bounds in the first place.
+//
+// Note: any rectangle wide enough to cover all of Staten Island's real
+// west edge (-74.259) also reaches longitudes that fall within parts of
+// New Jersey directly across the water (Bayonne/Jersey City, and even
+// West Orange further inland sits at -74.239 — east of Staten Island's own
+// tip) — NYC's actual shape isn't a rectangle, so a small NJ sliver at
+// Staten Island's latitude is unavoidable without also clipping Staten
+// Island itself. Padding here is kept minimal specifically to limit that
+// bleed as much as a rectangle allows.
+const NYC_MAX_BOUNDS: [[number, number], [number, number]] = [
+  [40.48, -74.26],
+  [40.92, -73.69],
+];
+const NYC_MIN_ZOOM = 10;
+
 // How far in to fly when a "See on map" button targets a specific building
 // — well past the zip-fit zoom so the target building is unambiguous among
 // its neighbors.
@@ -120,7 +141,15 @@ export default function MapView({
 
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 shadow-sm">
-      <MapContainer ref={mapRef} center={center} zoom={15} style={{ height: 440, width: "100%" }}>
+      <MapContainer
+        ref={mapRef}
+        center={center}
+        zoom={15}
+        minZoom={NYC_MIN_ZOOM}
+        maxBounds={NYC_MAX_BOUNDS}
+        maxBoundsViscosity={1.0}
+        style={{ height: 440, width: "100%" }}
+      >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

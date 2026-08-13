@@ -57,7 +57,7 @@ export default function MapView({
   if (points.length === 0) {
     return (
       <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
-        No mapped violations for this zip.
+        No mapped violations for this search.
       </div>
     );
   }

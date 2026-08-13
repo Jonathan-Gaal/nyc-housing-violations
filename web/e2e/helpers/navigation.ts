@@ -13,7 +13,7 @@ import type { Locator, Page } from "@playwright/test";
  * auto-retrying `expect(locator).toBeVisible()`.
  */
 export async function searchZip(page: Page, zip: string): Promise<void> {
-  const zipInput = page.getByLabel("Zip code");
+  const zipInput = page.getByLabel("Zip, street, or address");
   await zipInput.fill(zip);
   await page.getByRole("button", { name: /search/i }).click();
 }

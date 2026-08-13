@@ -1,5 +1,6 @@
 import type { Pool, PoolClient } from 'pg';
 import type { ScoringBreakdown } from './scoring';
+import { escapeLikePattern } from './validation';
 
 // Accepts either a pooled connection or a single client checked out of the
 // pool (e.g. loadIntoDb.ts's transaction client) — both expose the same
@@ -147,6 +148,50 @@ export async function getPaginatedBuildingsForZip(
     pageSize,
     totalBuildings,
     totalPages,
+  };
+}
+
+export interface AddressSearchResult {
+  buildings: BuildingRow[];
+  totalMatches: number;
+  truncated: boolean;
+}
+
+const ADDRESS_SEARCH_LIMIT = 50;
+
+// Street/address search, unlike zip search, only ever queries buildings
+// already cached in Postgres (from a prior zip search or the CSV/cron
+// seed) — it never falls back to a live Socrata fetch. Socrata SoQL
+// queries only ever take a validated 5-digit zip (context/API_INTEGRATION.md
+// §8's "zip is the only dynamic filter"); free-text address search stays
+// on the Postgres side of that boundary, where it's a parameterized ILIKE
+// instead of a string built into a SoQL query. A search for an address in
+// a zip nobody has searched yet returns no matches — search that zip first
+// to seed it.
+export async function searchBuildingsByAddress(
+  pool: Pool,
+  query: string
+): Promise<AddressSearchResult> {
+  const pattern = `%${escapeLikePattern(query.trim())}%`;
+  const result = await pool.query<BuildingRowRaw>(
+    `SELECT building_id, street_name, postcode, house_number_display, latitude, longitude,
+            violation_count, rent_impairing_count, avg_days_open,
+            percent_dead_end, percent_reissued, recurring_issue_count,
+            rating, last_violation_date
+     FROM buildings
+     WHERE (house_number_display || ' ' || street_name || ' ' || postcode) ILIKE $1
+        OR street_name ILIKE $1
+     ORDER BY rating ASC, violation_count DESC
+     LIMIT $2`,
+    [pattern, ADDRESS_SEARCH_LIMIT + 1]
+  );
+
+  const truncated = result.rows.length > ADDRESS_SEARCH_LIMIT;
+
+  return {
+    buildings: result.rows.slice(0, ADDRESS_SEARCH_LIMIT).map(withScoringBreakdown),
+    totalMatches: Math.min(result.rows.length, ADDRESS_SEARCH_LIMIT),
+    truncated,
   };
 }
 

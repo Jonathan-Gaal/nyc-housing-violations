@@ -21,7 +21,7 @@ const DATABASE_PLACEHOLDER_SKIP_REASON =
 test.describe("Zip search", () => {
   test("zip input is visible on load", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByLabel("Zip code")).toBeVisible();
+    await expect(page.getByLabel("Zip, street, or address")).toBeVisible();
   });
 
   test("entering a non-5-digit zip shows a validation error", async ({ page }) => {

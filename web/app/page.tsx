@@ -4,7 +4,8 @@ import { useState } from "react";
 import dynamic from "next/dynamic";
 import BuildingCard from "@/components/BuildingCard";
 import AllBuildingsBrowser from "@/components/AllBuildingsBrowser";
-import type { BuildingRow, ZipSummary, HeatmapPoint } from "@/lib/queries";
+import AddressSearchResults from "@/components/AddressSearchResults";
+import type { AddressSearchResult, BuildingRow, ZipSummary, HeatmapPoint } from "@/lib/queries";
 import type { MapFocusPoint } from "@/components/MapView";
 import { neighborhoodForZip } from "@/lib/zipNeighborhoods";
 import { isKnownNycZip } from "@/lib/nycZips";
@@ -57,11 +58,16 @@ function StatCard({
   );
 }
 
+type SearchMode = "zip" | "address";
+
 export default function Home() {
-  const [zipInput, setZipInput] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const [searchMode, setSearchMode] = useState<SearchMode | null>(null);
   const [searchedZip, setSearchedZip] = useState<string | null>(null);
   const [summary, setSummary] = useState<ZipSummary | null>(null);
   const [buildings, setBuildings] = useState<BuildingRow[]>([]);
+  const [addressQuery, setAddressQuery] = useState<string | null>(null);
+  const [addressResult, setAddressResult] = useState<AddressSearchResult | null>(null);
   const [points, setPoints] = useState<HeatmapPoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,30 +81,77 @@ export default function Home() {
     setFocusPoint({ lat, lng });
   }
 
-  const hasNonDigitInput = zipInput.length > 0 && !/^\d*$/.test(zipInput);
-  const isCompleteZipFormat = /^\d{5}$/.test(zipInput);
-  const isRecognizedZip = isCompleteZipFormat && isKnownNycZip(zipInput);
+  const isCompleteZipFormat = /^\d{5}$/.test(searchInput.trim());
+  const isRecognizedZip = isCompleteZipFormat && isKnownNycZip(searchInput.trim());
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
+    const query = searchInput.trim();
+    setHasSearched(true);
+
+    // All-digit input that isn't 5 digits reads as a mistyped zip, not an
+    // address search (a street search wouldn't be all numbers anyway) — so
+    // it gets the specific zip-format error instead of silently searching
+    // for a housenumber-only match.
+    if (/^\d+$/.test(query) && !isCompleteZipFormat) {
+      setError("Zip code must be 5 digits");
+      return;
+    }
+
     setLoading(true);
     setError(null);
-    setHasSearched(true);
+
+    // Zip stays the only input that reaches a live Socrata fetch — street
+    // and address search only ever query buildings already cached in
+    // Postgres (see lib/queries.ts's searchBuildingsByAddress).
+    if (isCompleteZipFormat) {
+      try {
+        const res = await fetch(`/api/buildings?zip=${encodeURIComponent(query)}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Search failed");
+        setSearchMode("zip");
+        setSummary(data.summary);
+        setBuildings(data.topBuildings);
+        setSearchedZip(query);
+        setAddressQuery(null);
+        setAddressResult(null);
+
+        const heatmapRes = await fetch(`/api/heatmap?zip=${encodeURIComponent(query)}`);
+        const heatmapData = await heatmapRes.json();
+        setPoints(heatmapRes.ok ? heatmapData.points : []);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Search failed");
+        setSummary(null);
+        setBuildings([]);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     try {
-      const res = await fetch(`/api/buildings?zip=${encodeURIComponent(zipInput)}`);
+      const res = await fetch(`/api/buildings/search?q=${encodeURIComponent(query)}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Search failed");
-      setSummary(data.summary);
-      setBuildings(data.topBuildings);
-      setSearchedZip(zipInput);
-
-      const heatmapRes = await fetch(`/api/heatmap?zip=${encodeURIComponent(zipInput)}`);
-      const heatmapData = await heatmapRes.json();
-      setPoints(heatmapRes.ok ? heatmapData.points : []);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Search failed");
+      setSearchMode("address");
+      setAddressQuery(query);
+      setAddressResult(data);
+      setSearchedZip(null);
       setSummary(null);
       setBuildings([]);
+      setPoints(
+        data.buildings.map((b: BuildingRow) => ({
+          building_id: b.building_id,
+          latitude: b.latitude,
+          longitude: b.longitude,
+          weight: Math.min(b.violation_count, 100),
+          house_number_display: b.house_number_display,
+          street_name: b.street_name,
+        }))
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Search failed");
+      setAddressResult(null);
     } finally {
       setLoading(false);
     }
@@ -126,8 +179,9 @@ export default function Home() {
             Know before you sign the lease
           </h1>
           <p className="mx-auto mt-3 max-w-xl text-slate-600">
-            Search open housing violations by zip code so you can steer clear of
-            the worst-maintained buildings and find a genuinely safe place to live.
+            Search open housing violations by zip code, street, or address so
+            you can steer clear of the worst-maintained buildings and find a
+            genuinely safe place to live.
           </p>
 
           <form onSubmit={handleSearch} className="mx-auto mt-6 flex max-w-md gap-2">
@@ -136,22 +190,16 @@ export default function Home() {
                 <SearchIcon />
               </span>
               <label htmlFor="zip-search-input" className="sr-only">
-                Zip code
+                Zip, street, or address
               </label>
               <input
                 id="zip-search-input"
                 type="text"
-                inputMode="numeric"
-                aria-label="Zip code"
-                value={zipInput}
-                onChange={(e) => setZipInput(e.target.value)}
-                placeholder="Enter a zip code, e.g. 11106"
-                className={`w-full rounded-full border bg-white py-2 pl-10 pr-4 text-sm shadow-sm outline-none focus:ring-2 ${
-                  hasNonDigitInput
-                    ? "border-red-300 focus:border-red-500 focus:ring-red-100"
-                    : "border-slate-300 focus:border-blue-500 focus:ring-blue-100"
-                }`}
-                maxLength={5}
+                aria-label="Zip, street, or address"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="Zip, street, or address — e.g. 11106 or Broadway"
+                className="w-full rounded-full border border-slate-300 bg-white py-2 pl-10 pr-4 text-sm shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
               />
             </div>
             <button
@@ -162,9 +210,6 @@ export default function Home() {
               {loading ? "Searching…" : "Search"}
             </button>
           </form>
-          {hasNonDigitInput && (
-            <p className="mt-2 text-xs font-medium text-red-600">Zip code must be numbers only</p>
-          )}
           {isCompleteZipFormat && !isRecognizedZip && (
             <p className="mt-2 text-xs font-medium text-amber-600">
               Doesn&apos;t look like a recognized NYC zip code — you can still search.
@@ -182,12 +227,12 @@ export default function Home() {
 
         {!hasSearched && !error && (
           <div className="mx-auto max-w-3xl rounded-xl border border-dashed border-slate-300 bg-white px-5 py-9 text-center text-slate-500">
-            Try a New York City zip code above to see how buildings in that area
-            are rated.
+            Try a New York City zip code, street, or address above to see how
+            buildings in that area are rated.
           </div>
         )}
 
-        {summary && searchedZip && (
+        {searchMode === "zip" && summary && searchedZip && (
           <>
             <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
               <StatCard label="Open violations" value={summary.totalViolations.toLocaleString()} />
@@ -239,6 +284,22 @@ export default function Home() {
               </div>
             )}
           </>
+        )}
+
+        {searchMode === "address" && addressResult && addressQuery && (
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[360px_1fr]">
+            <aside className="order-2 lg:order-1">
+              <AddressSearchResults
+                query={addressQuery}
+                buildings={addressResult.buildings}
+                truncated={addressResult.truncated}
+                onViewOnMap={viewOnMap}
+              />
+            </aside>
+            <div className="order-1 lg:order-2">
+              <MapView points={points} focusPoint={focusPoint} />
+            </div>
+          </div>
         )}
       </main>
 

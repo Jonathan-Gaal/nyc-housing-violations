@@ -9,7 +9,7 @@ export const TEST_ZIPS = {
   // Malformed zip (not 5 digits) — must be rejected by
   // web/lib/validation.ts's `/^\d{5}$/` rule before it reaches the DB.
   INVALID: "1234",
-  // Valid 5-digit zip format, but not present in the loaded dataset —
-  // exercises the "no violations found" empty state, not an error.
+  // Valid 5-digit format but not a real NYC zip (lib/nycZips.ts) — exercises
+  // the "No such zip code" state, not an error or a live-fetch attempt.
   EMPTY: "99999",
 } as const;

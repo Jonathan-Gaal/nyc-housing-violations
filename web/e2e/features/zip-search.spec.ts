@@ -38,17 +38,22 @@ test.describe("Zip search", () => {
     await searchZip(page, TEST_ZIPS.LOADED);
 
     await expect(page.getByText(/open violations/i)).toBeVisible();
-    await expect(page.getByText(/worst-rated buildings/i)).toBeVisible();
+    await expect(page.getByText(/worst buildings/i)).toBeVisible();
     await expect(buildingCards(page).first()).toBeVisible();
   });
 
-  test("a valid zip with no data shows the empty state, not an error", async ({ page }) => {
+  // Zip 99999 isn't a recognized NYC zip (lib/nycZips.ts) — this now
+  // correctly resolves to "No such zip code" instead of a live-fetch
+  // attempt, not the "valid zip, zero violations" case TEST_ZIPS.EMPTY's
+  // name originally implied. See lib/nycZips.ts / app/page.tsx's
+  // isKnownNycZip check.
+  test("an unrecognized zip shows 'no such zip code', not an error", async ({ page }) => {
     test.skip(databaseUrlIsPlaceholder, DATABASE_PLACEHOLDER_SKIP_REASON);
 
     await page.goto("/");
     await searchZip(page, TEST_ZIPS.EMPTY);
 
-    await expect(page.getByText(/no open violations found/i)).toBeVisible();
+    await expect(page.getByText(/no such zip code/i)).toBeVisible();
   });
 
   test("building cards render in worst-first order", async ({ page }) => {

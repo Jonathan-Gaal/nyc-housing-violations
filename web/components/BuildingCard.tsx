@@ -74,13 +74,9 @@ export default function BuildingCard({ building }: { building: BuildingRow }) {
   const [landlordProfile, setLandlordProfile] = useState<LandlordProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showOnlyRentImpairing, setShowOnlyRentImpairing] = useState(false);
 
-  async function toggle() {
-    if (expanded) {
-      setExpanded(false);
-      return;
-    }
-    setExpanded(true);
+  async function loadDataIfNeeded() {
     if (violations !== null) return;
 
     setLoading(true);
@@ -101,11 +97,40 @@ export default function BuildingCard({ building }: { building: BuildingRow }) {
     }
   }
 
-  const byEntrance = (violations ?? []).reduce<Record<string, ViolationRow[]>>((acc, v) => {
+  function toggle() {
+    if (expanded) {
+      setExpanded(false);
+      return;
+    }
+    setExpanded(true);
+    loadDataIfNeeded();
+  }
+
+  // Jumps straight to the filtered rent-impairing view, expanding the card
+  // first if it's collapsed — same underlying fetch as toggle(), just with
+  // the filter pre-applied.
+  function showRentImpairingOnly(e: React.MouseEvent) {
+    e.stopPropagation();
+    setExpanded(true);
+    setShowOnlyRentImpairing(true);
+    loadDataIfNeeded();
+  }
+
+  const allByEntrance = (violations ?? []).reduce<Record<string, ViolationRow[]>>((acc, v) => {
     const key = v.house_number || "Unknown";
     (acc[key] ??= []).push(v);
     return acc;
   }, {});
+
+  // Entrances with zero rent-impairing violations disappear entirely under
+  // the filter, rather than showing an empty "Entrance X" header.
+  const byEntrance = showOnlyRentImpairing
+    ? Object.fromEntries(
+        Object.entries(allByEntrance)
+          .map(([entrance, list]) => [entrance, list.filter((v) => v.rent_impairing)] as const)
+          .filter(([, list]) => list.length > 0)
+      )
+    : allByEntrance;
 
   const tier = ratingTier(building.rating);
   const ring = TIER_STYLES[tier].ring;
@@ -114,8 +139,17 @@ export default function BuildingCard({ building }: { building: BuildingRow }) {
     <div
       className={`rounded-xl border border-slate-200 bg-white shadow-sm ring-1 ${ring} transition-shadow hover:shadow-md`}
     >
-      <button
+      <div
         onClick={toggle}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            toggle();
+          }
+        }}
+        role="button"
+        tabIndex={0}
+        data-testid="building-card-toggle"
         className="flex w-full cursor-pointer items-start justify-between gap-4 p-4 text-left"
       >
         <div className="min-w-0">
@@ -125,10 +159,13 @@ export default function BuildingCard({ building }: { building: BuildingRow }) {
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
             <RatingBadge rating={building.rating} />
             {building.rent_impairing_count > 0 && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700">
+              <button
+                onClick={showRentImpairingOnly}
+                className="inline-flex cursor-pointer items-center gap-1 rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 transition-colors hover:bg-red-100"
+              >
                 <WarningIcon />
                 {building.rent_impairing_count} rent-impairing
-              </span>
+              </button>
             )}
           </div>
         </div>
@@ -139,7 +176,7 @@ export default function BuildingCard({ building }: { building: BuildingRow }) {
           </div>
           <ChevronIcon open={expanded} />
         </div>
-      </button>
+      </div>
 
       {expanded && (
         <div className="border-t border-slate-100 px-4 pb-4 pt-3">
@@ -194,6 +231,20 @@ export default function BuildingCard({ building }: { building: BuildingRow }) {
           )}
           {!loading && !error && violations && violations.length > 0 && (
             <ViolationTimeline violations={violations} />
+          )}
+          {!loading && !error && showOnlyRentImpairing && (
+            <div className="mb-2 flex items-center justify-between rounded-lg bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700">
+              <span>Showing rent-impairing violations only</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowOnlyRentImpairing(false);
+                }}
+                className="cursor-pointer underline hover:no-underline"
+              >
+                Show all
+              </button>
+            </div>
           )}
           {/* Capped + scrollable: a building with hundreds of violations
               (common — see lib/queries.ts's getPaginatedBuildingsForZip)

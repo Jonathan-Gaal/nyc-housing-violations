@@ -23,10 +23,11 @@ export async function searchZip(page: Page, zip: string): Promise<void> {
  * matches API response order — worst-first, per web/lib/scoring.ts).
  */
 export function buildingCards(page: Page): Locator {
-  // Each BuildingCard.tsx root renders a clickable <button> containing the
-  // building's street address heading; scope on that button so we get one
-  // locator per card regardless of expanded/collapsed state.
-  return page.locator("main button", { has: page.getByRole("heading", { level: 3 }) });
+  // Scoped on BuildingCard.tsx's data-testid, not its element tag/role —
+  // the toggle is a role="button" div (not a real <button>) so a real
+  // <button> can be nested inside it (the rent-impairing filter button),
+  // which isn't valid HTML for button-in-button.
+  return page.locator('[data-testid="building-card-toggle"]');
 }
 
 /**

@@ -1,11 +1,64 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
-import { latLngBounds, type Map as LeafletMap } from "leaflet";
+import { latLngBounds, type Map as LeafletMap, type Popup as LeafletPopup } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { HeatmapPoint } from "@/lib/queries";
 import { computeMarkerColor, computeMarkerRadius } from "@/lib/mapMarkers";
+import BuildingCard from "@/components/BuildingCard";
+
+// Wide enough for BuildingCard's normal layout to render without cramping;
+// matches the card width comfortably inside Leaflet's popup chrome.
+const POPUP_MAX_WIDTH = 320;
+
+// Expanding the card inside a popup (to show violations/timeline/landlord
+// info) can grow taller than the map's own fixed-height (440px) container —
+// autoPan can only reposition the popup within the map's viewport, it can't
+// grow the map itself, so unbounded expanded content would get clipped by
+// MapView's outer overflow-hidden wrapper no matter how it's panned.
+// max-h + overflow-y-auto here bounds it to comfortably fit under 440px
+// (leaving room for the popup's own tip/chrome), same "cap it, make it
+// scroll" treatment as BuildingCard's own violation list.
+const POPUP_CONTENT_MAX_HEIGHT = 260;
+
+// A ResizeObserver + Popup.update() (which re-runs Leaflet's own
+// positioning + auto-pan for the popup's current size) still matters for
+// the range between collapsed and the height cap above — without it, the
+// popup opens correctly but going from collapsed to expanded doesn't
+// re-trigger auto-pan for the new size.
+//
+// react-leaflet doesn't mount a Popup's content into the real DOM until the
+// popup actually opens (all 818 markers' Popups exist, but only the open
+// one has a live content node) — a plain useRef + useEffect(fn, []) reads
+// the ref before that DOM node exists and silently no-ops forever. A
+// callback ref instead fires exactly when React attaches/detaches the node,
+// whenever that actually happens.
+function MarkerPopup({ building }: { building: HeatmapPoint }) {
+  const popupRef = useRef<LeafletPopup | null>(null);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+
+  const setContentRef = useCallback((el: HTMLDivElement | null) => {
+    resizeObserverRef.current?.disconnect();
+    resizeObserverRef.current = null;
+    if (!el) return;
+    const observer = new ResizeObserver(() => popupRef.current?.update());
+    observer.observe(el);
+    resizeObserverRef.current = observer;
+  }, []);
+
+  return (
+    <Popup ref={popupRef} maxWidth={POPUP_MAX_WIDTH} minWidth={280}>
+      <div
+        ref={setContentRef}
+        className="w-72 -m-1 overflow-y-auto"
+        style={{ maxHeight: POPUP_CONTENT_MAX_HEIGHT }}
+      >
+        <BuildingCard building={building} />
+      </div>
+    </Popup>
+  );
+}
 
 // How far in to fly when a "See on map" button targets a specific building
 // — well past the zip-fit zoom so the target building is unambiguous among
@@ -84,13 +137,10 @@ export default function MapView({
               weight: 1,
             }}
           >
-            <Popup>
-              <span className="font-semibold">
-                {p.house_number_display} {p.street_name}
-              </span>
-              <br />
-              {p.weight} open violation{p.weight === 1 ? "" : "s"}
-            </Popup>
+            {/* Same summary format as the top-10 sidebar / browse-all
+                cards — just without the "See on map" button, since
+                clicking a marker already means you're looking at it. */}
+            <MarkerPopup building={p} />
           </CircleMarker>
         ))}
       </MapContainer>

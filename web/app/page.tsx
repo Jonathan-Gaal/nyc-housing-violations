@@ -149,14 +149,7 @@ export default function Home() {
       setSummary(null);
       setBuildings([]);
       setPoints(
-        data.buildings.map((b: BuildingRow) => ({
-          building_id: b.building_id,
-          latitude: b.latitude,
-          longitude: b.longitude,
-          weight: Math.min(b.violation_count, 100),
-          house_number_display: b.house_number_display,
-          street_name: b.street_name,
-        }))
+        data.buildings.map((b: BuildingRow) => ({ ...b, weight: Math.min(b.violation_count, 100) }))
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Search failed");

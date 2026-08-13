@@ -254,40 +254,27 @@ export async function getMaxViolationsInZip(db: Queryable, zip: string): Promise
   return maxViolations === null || maxViolations === undefined ? 0 : Number(maxViolations);
 }
 
-export interface HeatmapPoint {
-  building_id: string;
-  latitude: number;
-  longitude: number;
+// Extends the full BuildingRow (not just address + weight) so a marker's
+// popup can render the same BuildingCard summary used in the top-10
+// sidebar and browse-all list, instead of a bare address + count.
+export interface HeatmapPoint extends BuildingRow {
   weight: number;
-  house_number_display: string;
-  street_name: string;
-}
-
-interface HeatmapSourceRow {
-  building_id: string;
-  latitude: number;
-  longitude: number;
-  violation_count: number;
-  house_number_display: string;
-  street_name: string;
 }
 
 // Covers US-6. Weight is the building's violation_count, clamped so a single
-// outlier building doesn't wash out the rest of the heatmap. Address fields
-// are carried through so map markers can show what building a point is
-// (spec: map popups show the address, not just a violation count).
+// outlier building doesn't wash out the rest of the heatmap.
 export async function getHeatmapPoints(pool: Pool, zip: string): Promise<HeatmapPoint[]> {
-  const result = await pool.query<HeatmapSourceRow>(
-    'SELECT building_id, latitude, longitude, violation_count, house_number_display, street_name FROM buildings WHERE postcode = $1 AND latitude IS NOT NULL AND longitude IS NOT NULL',
+  const result = await pool.query<BuildingRowRaw>(
+    `SELECT building_id, street_name, postcode, house_number_display, latitude, longitude,
+            violation_count, rent_impairing_count, avg_days_open,
+            percent_dead_end, percent_reissued, recurring_issue_count,
+            rating, last_violation_date
+     FROM buildings WHERE postcode = $1 AND latitude IS NOT NULL AND longitude IS NOT NULL`,
     [zip]
   );
 
   return result.rows.map((r) => ({
-    building_id: r.building_id,
-    latitude: r.latitude,
-    longitude: r.longitude,
+    ...withScoringBreakdown(r),
     weight: Math.min(r.violation_count, 100),
-    house_number_display: r.house_number_display,
-    street_name: r.street_name,
   }));
 }

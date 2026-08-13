@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { ratingToStars, starVariants } from "./starRating";
 
 describe("ratingToStars", () => {
-  it("maps 0 -> 0 stars and 100 -> 5 stars", () => {
-    expect(ratingToStars(0)).toBe(0);
+  it("floors at 1 star even for a rating of 0, and maps 100 -> 5 stars", () => {
+    expect(ratingToStars(0)).toBe(1);
     expect(ratingToStars(100)).toBe(5);
   });
 
@@ -17,7 +17,7 @@ describe("ratingToStars", () => {
   });
 
   it("clamps out-of-range input", () => {
-    expect(ratingToStars(-20)).toBe(0);
+    expect(ratingToStars(-20)).toBe(1);
     expect(ratingToStars(150)).toBe(5);
   });
 });

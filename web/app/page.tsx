@@ -164,7 +164,11 @@ export default function Home() {
       {loading && <LoadingGame />}
 
       {/* Header */}
-      <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur">
+      {/* z-[1100]: Leaflet's own panes/controls go up to z-index 1000
+          (node_modules/leaflet/dist/leaflet.css's .leaflet-top/.leaflet-bottom),
+          so the old z-10 let the map render on top of this sticky header
+          once it scrolled underneath. */}
+      <header className="sticky top-0 z-[1100] border-b border-slate-200 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center gap-2 px-4 py-2.5">
           <HouseMarkIcon />
           <span className="text-lg font-bold tracking-tight text-slate-900">Open Violation NYC</span>

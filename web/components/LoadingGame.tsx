@@ -285,7 +285,11 @@ export default function LoadingGame() {
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-400/25 backdrop-blur-sm">
+    // z-[1200]: above the sticky header's z-[1100] (app/page.tsx, itself
+    // raised above Leaflet's z-index-1000 controls) so the loading overlay
+    // still covers the whole page, header included, while a search is in
+    // flight.
+    <div className="fixed inset-0 z-[1200] bg-slate-400/25 backdrop-blur-sm">
       {/* Both layers share this same backdrop and cross-fade in place, so
           the game taking over doesn't feel like an abrupt screen change. */}
       <div

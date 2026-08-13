@@ -42,7 +42,11 @@ export default function AllBuildingsBrowser({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sort, setSort] = useState<BuildingSortOrder>("worst");
-  const [pageInput, setPageInput] = useState("");
+  // Only set while the user is actively typing a page number; cleared back
+  // to null on every successful load (loadPage below) so the input falls
+  // back to showing `data.page` — the currently-displayed page — instead of
+  // a stale typed value or a blank field.
+  const [pageInputOverride, setPageInputOverride] = useState<string | null>(null);
 
   async function loadPage(page: number, sortOverride?: BuildingSortOrder) {
     setLoading(true);
@@ -54,6 +58,7 @@ export default function AllBuildingsBrowser({
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed to load buildings");
       setData(json);
+      setPageInputOverride(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load buildings");
     } finally {
@@ -81,10 +86,9 @@ export default function AllBuildingsBrowser({
   function handlePageJump(e: React.FormEvent) {
     e.preventDefault();
     if (!data) return;
-    const requested = Number(pageInput);
+    const requested = Number(pageInputOverride ?? data.page);
     if (!Number.isFinite(requested)) return;
     const clamped = Math.min(Math.max(1, Math.floor(requested)), data.totalPages);
-    setPageInput("");
     loadPage(clamped);
   }
 
@@ -199,14 +203,14 @@ export default function AllBuildingsBrowser({
                   type="number"
                   min={1}
                   max={data.totalPages}
-                  value={pageInput}
-                  onChange={(e) => setPageInput(e.target.value)}
+                  value={pageInputOverride ?? String(data.page)}
+                  onChange={(e) => setPageInputOverride(e.target.value)}
                   disabled={loading}
                   className="w-14 rounded-md border border-slate-200 px-1.5 py-1 text-center text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
                 />
                 <button
                   type="submit"
-                  disabled={loading || !pageInput}
+                  disabled={loading}
                   className="cursor-pointer rounded-full border border-slate-200 px-2.5 py-1 font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Go

@@ -1,7 +1,14 @@
 import { getPool } from '@/lib/pgClient';
 import { getZipSummaryAndTopBuildings } from '@/lib/queries';
 import { validateZipCode } from '@/lib/validation';
-import { fetchAndLoadZip } from '@/lib/socrata';
+import { fetchAndLoadZip, LIVE_SEARCH_MAX_PAGES } from '@/lib/socrata';
+
+// The live-Socrata-seed path below (LIVE_SEARCH_MAX_PAGES) is bounded but
+// still measured up to ~28s for a first-time zip search — well past
+// Vercel's 10s serverless default. Extends this route's execution window;
+// every other route stays on the platform default since only this one does
+// a synchronous external fetch.
+export const maxDuration = 60;
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -17,12 +24,17 @@ export async function GET(request: Request) {
     let result = await getZipSummaryAndTopBuildings(pool, zip as string);
 
     // Nothing seeded for this zip yet — fetch it live from Socrata and
-    // cache it (spec 017), then re-read. A Socrata failure here still
-    // resolves the search: the caller just sees the pre-fetch (empty)
-    // result rather than a 500, matching the cron route's fail-soft stance.
+    // cache it (spec 017), then re-read. Capped to LIVE_SEARCH_MAX_PAGES so
+    // a violation-heavy zip still resolves within a serverless function's
+    // execution window — a capped fetch caches the most recent open
+    // violations rather than the complete set (buildQueryUrl orders by
+    // inspectiondate DESC), and the cron sync route fills in the rest on
+    // its next uncapped run. A Socrata failure here still resolves the
+    // search: the caller just sees the pre-fetch (empty) result rather than
+    // a 500, matching the cron route's fail-soft stance.
     if (result.summary.totalBuildings === 0) {
       try {
-        await fetchAndLoadZip(pool, zip as string);
+        await fetchAndLoadZip(pool, zip as string, LIVE_SEARCH_MAX_PAGES);
         result = await getZipSummaryAndTopBuildings(pool, zip as string);
       } catch (error) {
         console.error(`Live Socrata fetch failed for zip ${zip}:`, error);

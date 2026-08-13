@@ -39,6 +39,21 @@ const PAGE_SIZE = 1000;
 const MAX_RETRIES = 3;
 const INITIAL_RETRY_DELAY_MS = 500;
 
+// Per-request timeout, so a stalled Socrata response fails fast into the
+// retry/backoff path instead of hanging indefinitely (the previous lack of
+// a timeout was the dominant cost behind a 54-minute live fetch measured
+// against zip 10002 — see fix commit for the full writeup).
+const FETCH_TIMEOUT_MS = 15_000;
+
+// Default page cap for interactive callers (the zip-search route): bounds a
+// single live fetch to at most this many pages so a search always resolves
+// within a serverless function's execution window, even for a
+// violation-heavy zip. fetchOpenViolations' maxPages is opt-in (undefined =
+// uncapped) so the cron sync route's full daily resync isn't silently
+// truncated by the same default — only fetchAndLoadZip's callers that pass
+// this explicitly are bounded.
+export const LIVE_SEARCH_MAX_PAGES = 3;
+
 // Raw Socrata response shape — every field arrives as a string (or is
 // absent), per context/API_INTEGRATION.md §5. Callers cast explicitly where
 // numeric/boolean values are needed (e.g. parseFloat for latitude/longitude,
@@ -130,6 +145,11 @@ export function buildQueryUrl({ zip, limit = PAGE_SIZE, offset = 0 }: BuildQuery
     `SELECT ${COLUMNS}`,
     `WHERE upper(\`zip\`) LIKE '%${zip}%'`,
     `AND ${STATUS_CLAUSE}`, // OPEN, always — never a caller parameter
+    // Explicit order (was previously unordered, so pagination was not
+    // guaranteed stable) — most-recent-first also means a capped/partial
+    // fetch (maxPages) returns the newest open violations rather than an
+    // arbitrary slice.
+    'ORDER BY inspectiondate DESC',
     `LIMIT ${limit}`,
     `OFFSET ${offset}`,
   ].join(' ');
@@ -164,6 +184,11 @@ async function fetchPageWithRetry(url: string): Promise<SocrataViolationRow[]> {
           // header only, never in the query string (API_INTEGRATION.md §4/§8).
           'X-App-Token': process.env.NYC_APP_TOKEN ?? '',
         },
+        // Without this, a stalled Socrata response hangs past any sane
+        // retry budget — measured at 54 minutes total for a single
+        // 16-page fetch before this fix. Timing out lets the existing
+        // retry/backoff loop actually do its job.
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       });
 
       if (!response.ok) {
@@ -188,9 +213,14 @@ async function fetchPageWithRetry(url: string): Promise<SocrataViolationRow[]> {
 }
 
 // Direct implementation of context/API_INTEGRATION.md §2's paginated-fetch
-// pattern. Takes only a zip — status is never passed because it never
-// changes (OPEN is invariant).
-export async function fetchOpenViolations(zip: string): Promise<SocrataViolationRow[]> {
+// pattern. Status is never a parameter because it never changes (OPEN is
+// invariant). `maxPages` is opt-in and undefined by default (uncapped) —
+// pass LIVE_SEARCH_MAX_PAGES from an interactive/request-bound caller; the
+// cron sync route calls this uncapped for a complete daily resync.
+export async function fetchOpenViolations(
+  zip: string,
+  maxPages?: number
+): Promise<SocrataViolationRow[]> {
   const validation = validateZipCode(zip);
   if (!validation.valid) {
     throw new Error(`Invalid zip: ${zip}`);
@@ -198,13 +228,16 @@ export async function fetchOpenViolations(zip: string): Promise<SocrataViolation
 
   const allRows: SocrataViolationRow[] = [];
   let offset = 0;
+  let pagesFetched = 0;
 
   while (true) {
     const url = buildQueryUrl({ zip, limit: PAGE_SIZE, offset });
     const page = await fetchPageWithRetry(url);
     allRows.push(...page);
+    pagesFetched += 1;
 
     if (page.length < PAGE_SIZE) break; // last page
+    if (maxPages !== undefined && pagesFetched >= maxPages) break; // capped
     offset += PAGE_SIZE;
   }
 
@@ -247,9 +280,10 @@ export function toRawViolationRow(row: SocrataViolationRow): RawViolationRow {
 // empty zip search result is the fallback either way.
 export async function fetchAndLoadZip(
   pool: Pool,
-  zip: string
+  zip: string,
+  maxPages?: number
 ): Promise<{ buildingsLoaded: number; violationsLoaded: number; skippedRows: number }> {
-  const rawRows = await fetchOpenViolations(zip);
+  const rawRows = await fetchOpenViolations(zip, maxPages);
 
   const validRows: RawViolationRow[] = [];
   let skippedRows = 0;

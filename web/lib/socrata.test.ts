@@ -54,6 +54,12 @@ describe('buildQueryUrl', () => {
     const decoded = decodeURIComponent(url);
     expect(decoded).toContain(`upper(\`zip\`) LIKE '%${VALID_ZIP}%'`);
   });
+
+  it('orders by inspectiondate DESC, so pagination is stable and a capped fetch returns the most recent violations', () => {
+    const url = buildQueryUrl({ zip: VALID_ZIP });
+    const decoded = decodeURIComponent(url);
+    expect(decoded).toContain('ORDER BY inspectiondate DESC');
+  });
 });
 
 describe('fetchOpenViolations', () => {
@@ -111,6 +117,41 @@ describe('fetchOpenViolations', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(result).toHaveLength(1);
+  });
+
+  it('stops after maxPages even if the last page fetched was full', async () => {
+    const fullPage = (prefix: string) =>
+      Array.from({ length: 1000 }, (_, i) => makeRow({ violationid: `${prefix}-${i}` }));
+
+    const fetchMock = vi.fn();
+    fetchMock
+      .mockResolvedValueOnce({ ok: true, json: async () => fullPage('p0'), text: async () => '' })
+      .mockResolvedValueOnce({ ok: true, json: async () => fullPage('p1'), text: async () => '' });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const result = await fetchOpenViolations(VALID_ZIP, 2);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result).toHaveLength(2000);
+  });
+
+  it('is uncapped when maxPages is omitted, even across many full pages', async () => {
+    const fullPage = (prefix: string) =>
+      Array.from({ length: 1000 }, (_, i) => makeRow({ violationid: `${prefix}-${i}` }));
+    const shortPage = [makeRow({ violationid: 'last' })];
+
+    const fetchMock = vi.fn();
+    fetchMock
+      .mockResolvedValueOnce({ ok: true, json: async () => fullPage('p0'), text: async () => '' })
+      .mockResolvedValueOnce({ ok: true, json: async () => fullPage('p1'), text: async () => '' })
+      .mockResolvedValueOnce({ ok: true, json: async () => fullPage('p2'), text: async () => '' })
+      .mockResolvedValueOnce({ ok: true, json: async () => shortPage, text: async () => '' });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const result = await fetchOpenViolations(VALID_ZIP);
+
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(result).toHaveLength(3001);
   });
 
   it('sends the app token via header, never in the URL', async () => {

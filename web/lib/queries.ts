@@ -145,6 +145,8 @@ export interface HeatmapPoint {
   latitude: number;
   longitude: number;
   weight: number;
+  house_number_display: string;
+  street_name: string;
 }
 
 interface HeatmapSourceRow {
@@ -152,13 +154,17 @@ interface HeatmapSourceRow {
   latitude: number;
   longitude: number;
   violation_count: number;
+  house_number_display: string;
+  street_name: string;
 }
 
 // Covers US-6. Weight is the building's violation_count, clamped so a single
-// outlier building doesn't wash out the rest of the heatmap.
+// outlier building doesn't wash out the rest of the heatmap. Address fields
+// are carried through so map markers can show what building a point is
+// (spec: map popups show the address, not just a violation count).
 export async function getHeatmapPoints(pool: Pool, zip: string): Promise<HeatmapPoint[]> {
   const result = await pool.query<HeatmapSourceRow>(
-    'SELECT building_id, latitude, longitude, violation_count FROM buildings WHERE postcode = $1 AND latitude IS NOT NULL AND longitude IS NOT NULL',
+    'SELECT building_id, latitude, longitude, violation_count, house_number_display, street_name FROM buildings WHERE postcode = $1 AND latitude IS NOT NULL AND longitude IS NOT NULL',
     [zip]
   );
 
@@ -167,5 +173,7 @@ export async function getHeatmapPoints(pool: Pool, zip: string): Promise<Heatmap
     latitude: r.latitude,
     longitude: r.longitude,
     weight: Math.min(r.violation_count, 100),
+    house_number_display: r.house_number_display,
+    street_name: r.street_name,
   }));
 }

@@ -38,8 +38,10 @@ export default function MapView({ points }: { points: HeatmapPoint[] }) {
           >
             <Popup>
               <span className="font-semibold">
-                {p.weight} open violation{p.weight === 1 ? "" : "s"}
+                {p.house_number_display} {p.street_name}
               </span>
+              <br />
+              {p.weight} open violation{p.weight === 1 ? "" : "s"}
             </Popup>
           </CircleMarker>
         ))}

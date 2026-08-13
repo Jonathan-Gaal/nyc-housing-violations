@@ -7,8 +7,6 @@ import type { BuildingRow, ZipSummary, HeatmapPoint } from "@/lib/queries";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
-type View = "list" | "map";
-
 function HouseMarkIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6 text-blue-600">
@@ -60,7 +58,6 @@ export default function Home() {
   const [summary, setSummary] = useState<ZipSummary | null>(null);
   const [buildings, setBuildings] = useState<BuildingRow[]>([]);
   const [points, setPoints] = useState<HeatmapPoint[]>([]);
-  const [view, setView] = useState<View>("map");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
@@ -145,15 +142,15 @@ export default function Home() {
         </div>
       </section>
 
-      <main className="mx-auto max-w-3xl px-4 py-8">
+      <main className="mx-auto max-w-6xl px-4 py-8">
         {error && (
-          <div className="mb-6 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="mx-auto mb-6 max-w-3xl flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
           </div>
         )}
 
         {!hasSearched && !error && (
-          <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center text-slate-500">
+          <div className="mx-auto max-w-3xl rounded-xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center text-slate-500">
             Try a New York City zip code above to see how buildings in that area
             are rated.
           </div>
@@ -176,45 +173,25 @@ export default function Home() {
             </div>
 
             {buildings.length === 0 ? (
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-6 py-8 text-center text-emerald-800">
+              <div className="mx-auto max-w-3xl rounded-xl border border-emerald-200 bg-emerald-50 px-6 py-8 text-center text-emerald-800">
                 No open violations found for zip {searchedZip}. Nice.
               </div>
             ) : (
-              <>
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="text-sm font-semibold text-slate-700">
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-[360px_1fr]">
+                <aside className="order-2 lg:order-1">
+                  <h2 className="mb-3 text-sm font-semibold text-slate-700">
                     Worst-rated buildings in {searchedZip}
                   </h2>
-                  <div className="flex gap-1 rounded-full bg-slate-100 p-1">
-                    <button
-                      onClick={() => setView("list")}
-                      className={`cursor-pointer rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-                        view === "list" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"
-                      }`}
-                    >
-                      List
-                    </button>
-                    <button
-                      onClick={() => setView("map")}
-                      className={`cursor-pointer rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-                        view === "map" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"
-                      }`}
-                    >
-                      Map
-                    </button>
-                  </div>
-                </div>
-
-                {view === "list" ? (
-                  <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-3 lg:max-h-[600px] lg:overflow-y-auto lg:pr-1">
                     {buildings.map((b) => (
                       <BuildingCard key={b.building_id} building={b} />
                     ))}
                   </div>
-                ) : (
+                </aside>
+                <div className="order-1 lg:order-2">
                   <MapView points={points} />
-                )}
-              </>
+                </div>
+              </div>
             )}
           </>
         )}

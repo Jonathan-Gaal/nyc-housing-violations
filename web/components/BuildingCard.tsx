@@ -146,34 +146,40 @@ export default function BuildingCard({ building }: { building: BuildingRow }) {
           {!loading && !error && violations && violations.length > 0 && (
             <ViolationTimeline violations={violations} />
           )}
-          {!loading &&
-            !error &&
-            Object.entries(byEntrance).map(([entrance, list]) => (
-              <div key={entrance} className="mb-3 last:mb-0">
-                <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  Entrance {entrance}
-                </h4>
-                <ul className="divide-y divide-slate-100">
-                  {list.map((v) => (
-                    <li key={v.violation_id} className="flex items-start justify-between gap-3 py-2">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm text-slate-700">
-                          {v.nov_description || v.nov_type || "Violation"}
-                        </p>
-                        {v.rent_impairing ? (
-                          <span className="mt-0.5 inline-flex items-center gap-1 text-xs font-semibold text-red-600">
-                            <WarningIcon /> Rent-impairing
-                          </span>
-                        ) : null}
-                      </div>
-                      <span className="shrink-0 whitespace-nowrap text-xs text-slate-500">
-                        {humanizeDaysOpen(v.days_open)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+          {/* Capped + scrollable: a building with hundreds of violations
+              (common — see lib/queries.ts's getPaginatedBuildingsForZip)
+              would otherwise render an unbounded list and blow the card out
+              to thousands of pixels tall. */}
+          {!loading && !error && violations && violations.length > 0 && (
+            <div className="max-h-80 overflow-y-auto pr-1">
+              {Object.entries(byEntrance).map(([entrance, list]) => (
+                <div key={entrance} className="mb-3 last:mb-0">
+                  <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Entrance {entrance}
+                  </h4>
+                  <ul className="divide-y divide-slate-100">
+                    {list.map((v) => (
+                      <li key={v.violation_id} className="flex items-start justify-between gap-3 py-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm text-slate-700">
+                            {v.nov_description || v.nov_type || "Violation"}
+                          </p>
+                          {v.rent_impairing ? (
+                            <span className="mt-0.5 inline-flex items-center gap-1 text-xs font-semibold text-red-600">
+                              <WarningIcon /> Rent-impairing
+                            </span>
+                          ) : null}
+                        </div>
+                        <span className="shrink-0 whitespace-nowrap text-xs text-slate-500">
+                          {humanizeDaysOpen(v.days_open)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

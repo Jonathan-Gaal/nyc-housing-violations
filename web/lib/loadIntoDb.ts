@@ -9,20 +9,25 @@ import { getMaxViolationsInZip } from './queries';
 // 10,000 — versus the former per-row loop, where loading a zip live from
 // Socrata could mean thousands of sequential network round-trips to
 // Supabase before the search response came back.
+// `rating` here is provisional — set equal to raw_score at load time so a
+// just-seeded zip has an immediately usable rating, not 0/null while it
+// waits for the next cron run. lib/scoring.ts's recomputeCityWidePercentiles
+// (run daily by the cron sync route) overwrites it with the authoritative
+// citywide percentile; raw_score itself is never touched by that step.
 const UPSERT_BUILDINGS_SQL = `
   INSERT INTO buildings (
     building_id, bin, bbl, street_name, postcode,
     house_number_low, house_number_high, house_number_display,
     latitude, longitude, violation_count, rent_impairing_count,
     avg_days_open, percent_dead_end, percent_reissued, recurring_issue_count,
-    rating, last_violation_date
+    raw_score, rating, last_violation_date
   )
   SELECT * FROM UNNEST(
     $1::text[], $2::text[], $3::text[], $4::text[], $5::text[],
     $6::text[], $7::text[], $8::text[],
     $9::double precision[], $10::double precision[], $11::integer[], $12::integer[],
     $13::integer[], $14::double precision[], $15::double precision[], $16::integer[],
-    $17::double precision[], $18::text[]
+    $17::double precision[], $18::double precision[], $19::text[]
   )
   ON CONFLICT (building_id) DO UPDATE SET
     bin = excluded.bin,
@@ -40,6 +45,7 @@ const UPSERT_BUILDINGS_SQL = `
     percent_dead_end = excluded.percent_dead_end,
     percent_reissued = excluded.percent_reissued,
     recurring_issue_count = excluded.recurring_issue_count,
+    raw_score = excluded.raw_score,
     rating = excluded.rating,
     last_violation_date = excluded.last_violation_date
 `;
@@ -148,6 +154,7 @@ export async function loadIntoDb(
         buildings.map((b) => b.percent_dead_end),
         buildings.map((b) => b.percent_reissued),
         buildings.map((b) => b.recurring_issue_count),
+        scores,
         scores,
         buildings.map((b) => b.last_violation_date),
       ]);

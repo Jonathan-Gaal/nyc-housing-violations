@@ -7,6 +7,7 @@ import {
   computePercentReissuedComponent,
   computeRentImpairingComponent,
   computeTotalViolationsComponent,
+  recomputeCityWidePercentiles,
 } from './scoring';
 import { getPool, isDatabaseUrlPlaceholder } from './pgClient';
 import { loadIntoDb } from './loadIntoDb';
@@ -291,6 +292,103 @@ describe.skipIf(databaseUrlIsPlaceholder)(
       expect(phase3Ordering.length).toBeLessThanOrEqual(10);
       expect(newFormulaOrdering.length).toBeGreaterThan(0);
       expect(newFormulaOrdering.length).toBeLessThanOrEqual(10);
+    });
+  }
+);
+
+// recomputeCityWidePercentiles is what turns raw_score's weighted-average
+// output (structurally clustered ~20-99.8, see scoring.ts's file-header
+// note above the function) into a `rating` that actually spans 0-100 —
+// same skip rationale and real-Supabase-instance precedent as the suites
+// above.
+describe.skipIf(isDatabaseUrlPlaceholder(process.env.DATABASE_URL))(
+  'recomputeCityWidePercentiles',
+  () => {
+    let pool: Pool;
+
+    function row(overrides: Partial<RawViolationRow>): RawViolationRow {
+      return {
+        ViolationID: '1',
+        BuildingID: 'B1',
+        Postcode: '11106',
+        HouseNumber: '1',
+        LowHouseNumber: '1',
+        HighHouseNumber: '1',
+        StreetName: 'TEST STREET',
+        InspectionDate: '2020-01-01',
+        CurrentStatus: 'NOT COMPLIED WITH',
+        ViolationStatus: 'Open',
+        RentImpairing: 'Y',
+        NOVDescription: 'Test violation',
+        NovType: 'TEST',
+        Latitude: '40.75',
+        Longitude: '-73.9',
+        BIN: 'BIN1',
+        BBL: 'BBL1',
+        ...overrides,
+      };
+    }
+
+    beforeAll(() => {
+      pool = getPool();
+    });
+
+    afterAll(async () => {
+      await pool.end();
+    });
+
+    it('spreads ratings across the full 0-100 range and preserves raw_score ordering', async () => {
+      await pool.query('TRUNCATE TABLE violations, buildings RESTART IDENTITY CASCADE');
+
+      // BEST: one clean, recently-resolved, non-rent-impairing violation.
+      const bestRows = [
+        row({
+          ViolationID: 'best-1',
+          BuildingID: 'BEST',
+          CurrentStatus: 'VIOLATION CLOSED',
+          RentImpairing: 'N',
+          InspectionDate: '2026-08-01',
+        }),
+      ];
+      // WORST: many old, dead-end, rent-impairing, reissued violations.
+      const worstRows = Array.from({ length: 50 }, (_, i) =>
+        row({
+          ViolationID: `worst-${i}`,
+          BuildingID: 'WORST',
+          CurrentStatus: 'NOT COMPLIED WITH',
+          RentImpairing: 'Y',
+          InspectionDate: '2010-01-01',
+        })
+      );
+      // MIDDLE: a moderate mix.
+      const middleRows = Array.from({ length: 10 }, (_, i) =>
+        row({
+          ViolationID: `middle-${i}`,
+          BuildingID: 'MIDDLE',
+          CurrentStatus: i < 5 ? 'NOT COMPLIED WITH' : 'VIOLATION CLOSED',
+          RentImpairing: i < 3 ? 'Y' : 'N',
+          InspectionDate: '2023-01-01',
+        })
+      );
+
+      await loadIntoDb(pool, [...bestRows, ...worstRows, ...middleRows], new Date('2026-08-13'));
+
+      const { updated } = await recomputeCityWidePercentiles(pool);
+      expect(updated).toBe(3);
+
+      const result = await pool.query<{ building_id: string; rating: string; raw_score: string }>(
+        'SELECT building_id, rating, raw_score FROM buildings ORDER BY raw_score ASC'
+      );
+      const [worst, middle, best] = result.rows;
+
+      // Percentile rank of the worst raw_score in a 3-row population is
+      // exactly 0; the best is exactly 100. Order must match raw_score.
+      expect(worst.building_id).toBe('WORST');
+      expect(Number(worst.rating)).toBe(0);
+      expect(best.building_id).toBe('BEST');
+      expect(Number(best.rating)).toBe(100);
+      expect(Number(middle.rating)).toBeGreaterThan(Number(worst.rating));
+      expect(Number(middle.rating)).toBeLessThan(Number(best.rating));
     });
   }
 );

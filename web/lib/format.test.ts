@@ -2,21 +2,22 @@ import { describe, expect, it } from "vitest";
 import { ratingTier, ratingLabel, humanizeDaysOpen } from "./format";
 
 describe("ratingTier / ratingLabel", () => {
-  // 3-tier thresholds: >=70 good, >=50 fair, else bad.
+  // Quartile-based thresholds (rating is a percentile): >=75 good,
+  // >=25 fair, else bad.
   it("buckets ratings into the three tiers", () => {
     expect(ratingTier(100)).toBe("good");
-    expect(ratingTier(70)).toBe("good");
-    expect(ratingTier(69)).toBe("fair");
-    expect(ratingTier(50)).toBe("fair");
-    expect(ratingTier(49)).toBe("bad");
-    expect(ratingTier(40)).toBe("bad");
+    expect(ratingTier(75)).toBe("good");
+    expect(ratingTier(74)).toBe("fair");
+    expect(ratingTier(25)).toBe("fair");
+    expect(ratingTier(24)).toBe("bad");
+    expect(ratingTier(10)).toBe("bad");
     expect(ratingTier(0)).toBe("bad");
   });
 
   it("labels match the tier", () => {
     expect(ratingLabel(100)).toBe("Good");
-    expect(ratingLabel(60)).toBe("Fair");
-    expect(ratingLabel(40)).toBe("Bad");
+    expect(ratingLabel(50)).toBe("Fair");
+    expect(ratingLabel(10)).toBe("Bad");
   });
 });
 

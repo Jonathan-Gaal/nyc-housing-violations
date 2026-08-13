@@ -66,7 +66,10 @@ describe.skipIf(databaseUrlIsPlaceholder)('loadIntoDb (Postgres, real Supabase i
     expect(building.violation_count).toBe(2);
     expect(building.rent_impairing_count).toBe(1);
     expect(Number(building.rating)).toBeGreaterThan(0);
-    expect(Number(building.rating)).toBeLessThanOrEqual(5);
+    expect(Number(building.rating)).toBeLessThanOrEqual(100);
+    // Provisional: rating = raw_score until the next citywide percentile
+    // recompute (recomputeCityWidePercentiles, run by the cron sync route).
+    expect(Number(building.rating)).toBe(Number(building.raw_score));
     expect(building.house_number_low).toBe('14-31');
 
     const violationCountResult = await pool.query('SELECT COUNT(*) as n FROM violations');

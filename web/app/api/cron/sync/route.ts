@@ -11,6 +11,7 @@
 import type { Pool } from 'pg';
 import { getPool } from '@/lib/pgClient';
 import { fetchAndLoadZip } from '@/lib/socrata';
+import { recomputeCityWidePercentiles } from '@/lib/scoring';
 
 interface ZipSyncResult {
   zip: string;
@@ -64,5 +65,11 @@ export async function GET(request: Request) {
     }
   }
 
-  return Response.json({ syncedZips: results.length, results });
+  // Ratings written during the loop above are provisional (raw_score copied
+  // straight into rating — see loadIntoDb.ts). Recompute the authoritative
+  // citywide percentile once per run, after all zips are loaded, not once
+  // per zip — a percentile is only meaningful against the full population.
+  const { updated: ratingsRecomputed } = await recomputeCityWidePercentiles(pool);
+
+  return Response.json({ syncedZips: results.length, results, ratingsRecomputed });
 }

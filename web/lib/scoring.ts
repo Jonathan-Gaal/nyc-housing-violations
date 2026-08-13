@@ -48,6 +48,8 @@
 // end-to-end worked example is a known source-doc arithmetic error and is
 // intentionally NOT reproduced or used as a test fixture — see
 // specs/007-scoring-new-formulas.md for the full resolution.
+import type { Pool } from 'pg';
+
 const SCORE_CEILING = 100;
 
 const WEIGHT = {
@@ -182,4 +184,37 @@ export function calculateScore({
       percentReissued: Math.round(percentReissued * 10) / 10,
     },
   };
+}
+
+// calculateScore's weighted-average `score` (stored as raw_score,
+// db/migrations/003_add_raw_score.sql) structurally can't reach the ends of
+// the 0-100 scale — it requires all 5 factors to be simultaneously extreme,
+// which real buildings essentially never are. Empirically, citywide
+// raw_score clusters ~20-99.8, so nothing ever reads as truly 1-star even
+// for buildings that are catastrophic on 4 of 5 factors.
+//
+// This recomputes the *displayed* `rating` as each building's percentile
+// rank of raw_score against every other building citywide — the same
+// calibration approach big consumer scoring products use (credit scores,
+// GreatSchools, WalkScore) specifically because it guarantees the full
+// scale gets used: by construction, some real fraction of buildings must
+// land in the bottom/top percentiles. raw_score itself is untouched; only
+// `rating` (what users see) changes.
+//
+// Percentile rank is only meaningful against the FULL current population,
+// so this is a periodic batch job (the cron sync route, once daily) rather
+// than something computed per building at load time — loadIntoDb.ts sets a
+// provisional rating = raw_score immediately so a freshly-seeded zip isn't
+// stuck at 0 until the next run.
+export async function recomputeCityWidePercentiles(pool: Pool): Promise<{ updated: number }> {
+  const result = await pool.query(`
+    UPDATE buildings b
+    SET rating = ROUND((ranked.percentile * 100)::numeric, 1)
+    FROM (
+      SELECT building_id, PERCENT_RANK() OVER (ORDER BY raw_score ASC) AS percentile
+      FROM buildings
+    ) ranked
+    WHERE b.building_id = ranked.building_id
+  `);
+  return { updated: result.rowCount ?? 0 };
 }

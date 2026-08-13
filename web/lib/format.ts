@@ -3,13 +3,16 @@
 
 export type RatingTier = "good" | "fair" | "bad";
 
-// Boundaries follow standard 5-star semantics (1-2 stars terrible/poor,
-// 3 stars average, 4-5 stars good/excellent), collapsed to 3 color tiers:
-// bad below 2.5 stars (rating 50), good from 3.5 stars up (rating 70),
-// fair in between.
+// `rating` is a citywide percentile (lib/scoring.ts's
+// recomputeCityWidePercentiles), not a raw score — uniformly spread 0-100
+// by construction, unlike the old skewed weighted-average scale these
+// thresholds used to be calibrated for. Quartile-based tiers are the
+// natural fit for a percentile scale: bottom quarter is bad, top quarter
+// is good, the broad middle half reads as fair (matches "3 stars/average"
+// covering most of a typical 5-star distribution).
 export function ratingTier(rating: number): RatingTier {
-  if (rating >= 70) return "good";
-  if (rating >= 50) return "fair";
+  if (rating >= 75) return "good";
+  if (rating >= 25) return "fair";
   return "bad";
 }
 

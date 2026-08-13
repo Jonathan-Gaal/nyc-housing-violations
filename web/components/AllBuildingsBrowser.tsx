@@ -3,6 +3,7 @@
 import { useState } from "react";
 import BuildingCard from "@/components/BuildingCard";
 import type { PaginatedBuildings } from "@/lib/queries";
+import { neighborhoodForZip } from "@/lib/zipNeighborhoods";
 
 function ChevronIcon({ open }: { open: boolean }) {
   return (
@@ -69,8 +70,9 @@ export default function AllBuildingsBrowser({ zip }: { zip: string }) {
       >
         <span className="flex items-center gap-2.5 text-sm font-bold text-white">
           <ListIcon />
-          Browse all buildings in {zip}
-          {data ? ` (${data.totalBuildings})` : ""}
+          Browse all buildings in{" "}
+          {neighborhoodForZip(zip) ? `${neighborhoodForZip(zip)}, ${zip}` : `zip ${zip}`}
+          {data ? ` - ${data.totalBuildings.toLocaleString()} buildings` : ""}
         </span>
         <ChevronIcon open={expanded} />
       </button>

@@ -84,6 +84,36 @@ export default function Home() {
   const isCompleteZipFormat = /^\d{5}$/.test(searchInput.trim());
   const isRecognizedZip = isCompleteZipFormat && isKnownNycZip(searchInput.trim());
 
+  // Shared by the search form's zip branch and AddressSearchResults' "try
+  // this zip directly" suggestion (shown when an address search comes back
+  // empty) — both need the exact same live-fetch-fallback zip flow.
+  async function runZipSearch(zip: string) {
+    setSearchInput(zip);
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/buildings?zip=${encodeURIComponent(zip)}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Search failed");
+      setSearchMode("zip");
+      setSummary(data.summary);
+      setBuildings(data.topBuildings);
+      setSearchedZip(zip);
+      setAddressQuery(null);
+      setAddressResult(null);
+
+      const heatmapRes = await fetch(`/api/heatmap?zip=${encodeURIComponent(zip)}`);
+      const heatmapData = await heatmapRes.json();
+      setPoints(heatmapRes.ok ? heatmapData.points : []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Search failed");
+      setSummary(null);
+      setBuildings([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     const query = searchInput.trim();
@@ -98,37 +128,16 @@ export default function Home() {
       return;
     }
 
-    setLoading(true);
-    setError(null);
-
     // Zip stays the only input that reaches a live Socrata fetch — street
     // and address search only ever query buildings already cached in
     // Postgres (see lib/queries.ts's searchBuildingsByAddress).
     if (isCompleteZipFormat) {
-      try {
-        const res = await fetch(`/api/buildings?zip=${encodeURIComponent(query)}`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Search failed");
-        setSearchMode("zip");
-        setSummary(data.summary);
-        setBuildings(data.topBuildings);
-        setSearchedZip(query);
-        setAddressQuery(null);
-        setAddressResult(null);
-
-        const heatmapRes = await fetch(`/api/heatmap?zip=${encodeURIComponent(query)}`);
-        const heatmapData = await heatmapRes.json();
-        setPoints(heatmapRes.ok ? heatmapData.points : []);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Search failed");
-        setSummary(null);
-        setBuildings([]);
-      } finally {
-        setLoading(false);
-      }
+      await runZipSearch(query);
       return;
     }
 
+    setLoading(true);
+    setError(null);
     try {
       const res = await fetch(`/api/buildings/search?q=${encodeURIComponent(query)}`);
       const data = await res.json();
@@ -294,6 +303,7 @@ export default function Home() {
                 buildings={addressResult.buildings}
                 truncated={addressResult.truncated}
                 onViewOnMap={viewOnMap}
+                onSearchZip={runZipSearch}
               />
             </aside>
             <div className="order-1 lg:order-2">

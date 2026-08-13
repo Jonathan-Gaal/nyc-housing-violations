@@ -3,19 +3,26 @@ import { aggregateBuildings, type RawViolationRow } from './csvLoader';
 import { calculateScore } from './scoring';
 import { getMaxViolationsInZip } from './queries';
 
-const UPSERT_BUILDING_SQL = `
+// Batched as a single UNNEST-based upsert rather than one query per row:
+// param count is fixed at one array per column regardless of how many rows
+// are loaded, so this stays a single round-trip whether it's 1 building or
+// 10,000 — versus the former per-row loop, where loading a zip live from
+// Socrata could mean thousands of sequential network round-trips to
+// Supabase before the search response came back.
+const UPSERT_BUILDINGS_SQL = `
   INSERT INTO buildings (
     building_id, bin, bbl, street_name, postcode,
     house_number_low, house_number_high, house_number_display,
     latitude, longitude, violation_count, rent_impairing_count,
     avg_days_open, percent_dead_end, percent_reissued, recurring_issue_count,
     rating, last_violation_date
-  ) VALUES (
-    $1, $2, $3, $4, $5,
-    $6, $7, $8,
-    $9, $10, $11, $12,
-    $13, $14, $15, $16,
-    $17, $18
+  )
+  SELECT * FROM UNNEST(
+    $1::text[], $2::text[], $3::text[], $4::text[], $5::text[],
+    $6::text[], $7::text[], $8::text[],
+    $9::double precision[], $10::double precision[], $11::integer[], $12::integer[],
+    $13::integer[], $14::double precision[], $15::double precision[], $16::integer[],
+    $17::double precision[], $18::text[]
   )
   ON CONFLICT (building_id) DO UPDATE SET
     bin = excluded.bin,
@@ -37,15 +44,16 @@ const UPSERT_BUILDING_SQL = `
     last_violation_date = excluded.last_violation_date
 `;
 
-const UPSERT_VIOLATION_SQL = `
+const UPSERT_VIOLATIONS_SQL = `
   INSERT INTO violations (
     violation_id, building_id, postcode, house_number, street_name,
     inspection_date, current_status, violation_status, rent_impairing,
     nov_description, nov_type, days_open
-  ) VALUES (
-    $1, $2, $3, $4, $5,
-    $6, $7, $8, $9,
-    $10, $11, $12
+  )
+  SELECT * FROM UNNEST(
+    $1::text[], $2::text[], $3::text[], $4::text[], $5::text[],
+    $6::text[], $7::text[], $8::text[], $9::integer[],
+    $10::text[], $11::text[], $12::integer[]
   )
   ON CONFLICT (violation_id) DO UPDATE SET
     current_status = excluded.current_status,
@@ -69,7 +77,20 @@ export async function loadIntoDb(
   rows: RawViolationRow[],
   asOf: Date = new Date()
 ): Promise<{ buildingsLoaded: number; violationsLoaded: number }> {
-  const { buildings, violations } = aggregateBuildings(rows, asOf);
+  const { buildings, violations: rawViolations } = aggregateBuildings(rows, asOf);
+
+  // Unlike `buildings` (already deduplicated by aggregateBuildings' Map-based
+  // grouping), `violations` has one entry per input row. A single UNNEST
+  // batch can't hit the same ON CONFLICT target twice — Postgres errors with
+  // "ON CONFLICT DO UPDATE command cannot affect row a second time" — so any
+  // duplicate violation_id within this batch (e.g. Socrata page overlap) is
+  // collapsed here, keeping the last occurrence to match the old per-row
+  // loop's last-write-wins behavior.
+  const violationsById = new Map<string, (typeof rawViolations)[number]>();
+  for (const v of rawViolations) {
+    violationsById.set(v.violation_id, v);
+  }
+  const violations = Array.from(violationsById.values());
 
   // specs/007-scoring-new-formulas.md: product-spec §4.2 Factor 1 needs
   // maxViolationsInZip. In-memory max covers buildings arriving in THIS
@@ -97,52 +118,55 @@ export async function loadIntoDb(
       maxViolationsInZipByZip.set(zip, Math.max(persistedMax, inMemoryMax));
     }
 
-    for (const b of buildings) {
-      const { score } = calculateScore({
-        violationCount: b.violation_count,
-        rentImpairingCount: b.rent_impairing_count,
-        avgDaysOpen: b.avg_days_open,
-        percentDeadEnd: b.percent_dead_end,
-        percentReissued: b.percent_reissued,
-        maxViolationsInZip: maxViolationsInZipByZip.get(b.postcode) ?? b.violation_count,
-      });
+    if (buildings.length > 0) {
+      const scores = buildings.map(
+        (b) =>
+          calculateScore({
+            violationCount: b.violation_count,
+            rentImpairingCount: b.rent_impairing_count,
+            avgDaysOpen: b.avg_days_open,
+            percentDeadEnd: b.percent_dead_end,
+            percentReissued: b.percent_reissued,
+            maxViolationsInZip: maxViolationsInZipByZip.get(b.postcode) ?? b.violation_count,
+          }).score
+      );
 
-      await client.query(UPSERT_BUILDING_SQL, [
-        b.building_id,
-        b.bin,
-        b.bbl,
-        b.street_name,
-        b.postcode,
-        b.house_number_low,
-        b.house_number_high,
-        b.house_number_display,
-        b.latitude,
-        b.longitude,
-        b.violation_count,
-        b.rent_impairing_count,
-        b.avg_days_open,
-        b.percent_dead_end,
-        b.percent_reissued,
-        b.recurring_issue_count,
-        score,
-        b.last_violation_date,
+      await client.query(UPSERT_BUILDINGS_SQL, [
+        buildings.map((b) => b.building_id),
+        buildings.map((b) => b.bin),
+        buildings.map((b) => b.bbl),
+        buildings.map((b) => b.street_name),
+        buildings.map((b) => b.postcode),
+        buildings.map((b) => b.house_number_low),
+        buildings.map((b) => b.house_number_high),
+        buildings.map((b) => b.house_number_display),
+        buildings.map((b) => b.latitude),
+        buildings.map((b) => b.longitude),
+        buildings.map((b) => b.violation_count),
+        buildings.map((b) => b.rent_impairing_count),
+        buildings.map((b) => b.avg_days_open),
+        buildings.map((b) => b.percent_dead_end),
+        buildings.map((b) => b.percent_reissued),
+        buildings.map((b) => b.recurring_issue_count),
+        scores,
+        buildings.map((b) => b.last_violation_date),
       ]);
     }
 
-    for (const v of violations) {
-      await client.query(UPSERT_VIOLATION_SQL, [
-        v.violation_id,
-        v.building_id,
-        v.postcode,
-        v.house_number,
-        v.street_name,
-        v.inspection_date,
-        v.current_status,
-        v.violation_status,
-        v.rent_impairing,
-        v.nov_description,
-        v.nov_type,
-        v.days_open,
+    if (violations.length > 0) {
+      await client.query(UPSERT_VIOLATIONS_SQL, [
+        violations.map((v) => v.violation_id),
+        violations.map((v) => v.building_id),
+        violations.map((v) => v.postcode),
+        violations.map((v) => v.house_number),
+        violations.map((v) => v.street_name),
+        violations.map((v) => v.inspection_date),
+        violations.map((v) => v.current_status),
+        violations.map((v) => v.violation_status),
+        violations.map((v) => v.rent_impairing),
+        violations.map((v) => v.nov_description),
+        violations.map((v) => v.nov_type),
+        violations.map((v) => v.days_open),
       ]);
     }
 

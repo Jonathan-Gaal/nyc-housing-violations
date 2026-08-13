@@ -72,7 +72,7 @@ export default function AllBuildingsBrowser({
     <div className="mt-4 overflow-hidden rounded-xl border border-blue-200 bg-white shadow-sm">
       <button
         onClick={toggle}
-        className="flex w-full cursor-pointer items-center justify-between gap-4 bg-blue-600 px-4 py-3 text-left transition-colors hover:bg-blue-700"
+        className="flex w-full cursor-pointer items-center justify-between gap-4 bg-blue-600 px-3.5 py-2.5 text-left transition-colors hover:bg-blue-700"
       >
         <span className="flex items-center gap-2.5 text-sm font-bold text-white">
           <ListIcon />
@@ -84,7 +84,7 @@ export default function AllBuildingsBrowser({
       </button>
 
       {expanded && (
-        <div className="px-3.5 pb-3.5 pt-2.5">
+        <div className="px-3 pb-3 pt-2">
           {loading && !data && (
             <div className="flex items-center gap-2 py-2 text-sm text-slate-500">
               <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />
@@ -99,13 +99,18 @@ export default function AllBuildingsBrowser({
             // legal boilerplate) stretches into single lines 1000+px wide
             // instead of wrapping/truncating like it does in the sidebar.
             <div className="mx-auto max-w-2xl">
-              {/* Capped to roughly half the sidebar top-10 list's 600px —
+              {/* Tall enough to show ~10 collapsed cards before scrolling —
                   at PAGE_SIZE=20 (web/app/api/buildings/all/route.ts)
                   buildings, an unbounded list here pushed the whole page to
                   several thousand pixels tall. */}
-              <div className="flex max-h-[300px] flex-col gap-3 overflow-y-auto pr-1">
+              <div className="flex max-h-[820px] flex-col gap-2.5 overflow-y-auto pr-1">
                 {data.buildings.map((b) => (
-                  <BuildingCard key={b.building_id} building={b} onViewOnMap={onViewOnMap} />
+                  <BuildingCard
+                    key={b.building_id}
+                    building={b}
+                    onViewOnMap={onViewOnMap}
+                    layout="inline"
+                  />
                 ))}
               </div>
 

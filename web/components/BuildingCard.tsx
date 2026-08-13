@@ -30,7 +30,7 @@ function RatingBadge({ rating }: { rating: number }) {
   const styles = TIER_STYLES[tier];
   const stars = ratingToStars(rating);
   return (
-    <span className="inline-flex items-center gap-2">
+    <span className="inline-flex items-center gap-1.5">
       <StarRating rating={rating} />
       <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${styles.badge}`}>
         {stars.toFixed(1)} · {ratingLabel(rating)}
@@ -67,6 +67,18 @@ function MapPinIcon() {
   );
 }
 
+function ViewOnMapButton({ onClick }: { onClick: (e: React.MouseEvent) => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="inline-flex cursor-pointer items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700 transition-colors hover:bg-blue-100"
+    >
+      <MapPinIcon />
+      See on map
+    </button>
+  );
+}
+
 function WarningIcon() {
   return (
     <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
@@ -82,9 +94,15 @@ function WarningIcon() {
 export default function BuildingCard({
   building,
   onViewOnMap,
+  layout = "stacked",
 }: {
   building: BuildingRow;
   onViewOnMap?: (lat: number, lng: number) => void;
+  // "inline" puts the See on map button, violation count, and chevron on one
+  // row — only fits in the wider "browse all buildings" column. The 360px
+  // sidebar ("stacked") doesn't have room for that without truncating
+  // addresses and wrapping badges, so it keeps the button on its own row.
+  layout?: "stacked" | "inline";
 }) {
   const [expanded, setExpanded] = useState(false);
   const [violations, setViolations] = useState<ViolationRow[] | null>(null);
@@ -173,13 +191,13 @@ export default function BuildingCard({
         role="button"
         tabIndex={0}
         data-testid="building-card-toggle"
-        className="flex w-full cursor-pointer items-start justify-between gap-4 p-3.5 text-left"
+        className="flex w-full cursor-pointer items-start justify-between gap-3 p-3 text-left"
       >
         <div className="min-w-0">
-          <h3 className="truncate font-semibold text-slate-900">
+          <h3 className="truncate text-sm font-semibold text-slate-900">
             {building.house_number_display} {building.street_name}
           </h3>
-          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
             <RatingBadge rating={building.rating} />
             {building.rent_impairing_count > 0 && (
               <button
@@ -192,28 +210,36 @@ export default function BuildingCard({
             )}
           </div>
         </div>
-        <div className="flex shrink-0 flex-col items-end gap-1.5">
-          <div className="flex items-center gap-3">
+        {layout === "inline" ? (
+          // Wide "browse all buildings" column: button, count, and chevron
+          // fit comfortably on one row.
+          <div className="flex shrink-0 items-center gap-2">
+            {onViewOnMap && <ViewOnMapButton onClick={viewOnMap} />}
             <div className="text-right">
-              <div className="text-xl font-bold text-slate-900">{building.violation_count}</div>
+              <div className="text-lg font-bold text-slate-900">{building.violation_count}</div>
               <div className="text-xs text-slate-500">violation{building.violation_count === 1 ? "" : "s"}</div>
             </div>
             <ChevronIcon open={expanded} />
           </div>
-          {onViewOnMap && (
-            <button
-              onClick={viewOnMap}
-              className="inline-flex cursor-pointer items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700 transition-colors hover:bg-blue-100"
-            >
-              <MapPinIcon />
-              See on map
-            </button>
-          )}
-        </div>
+        ) : (
+          // Narrow 360px sidebar: same three pieces, but the button on its
+          // own row underneath — a single inline row here would truncate
+          // addresses and wrap the rent-impairing badge.
+          <div className="flex shrink-0 flex-col items-end gap-1.5">
+            <div className="flex items-center gap-2">
+              <div className="text-right">
+                <div className="text-lg font-bold text-slate-900">{building.violation_count}</div>
+                <div className="text-xs text-slate-500">violation{building.violation_count === 1 ? "" : "s"}</div>
+              </div>
+              <ChevronIcon open={expanded} />
+            </div>
+            {onViewOnMap && <ViewOnMapButton onClick={viewOnMap} />}
+          </div>
+        )}
       </div>
 
       {expanded && (
-        <div className="border-t border-slate-100 px-3.5 pb-3.5 pt-2.5">
+        <div className="border-t border-slate-100 px-3 pb-3 pt-2">
           {loading && (
             <div className="flex items-center gap-2 py-2 text-sm text-slate-500">
               <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />

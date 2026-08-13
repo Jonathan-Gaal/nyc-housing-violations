@@ -11,7 +11,7 @@ test.describe("Health check", () => {
 
     await expect(page.getByRole("heading", { name: /know before you sign the lease/i })).toBeVisible();
 
-    const zipInput = page.getByPlaceholder(/enter a zip code/i);
-    await expect(zipInput).toBeVisible();
+    const searchInput = page.getByLabel("Zip, street, or address");
+    await expect(searchInput).toBeVisible();
   });
 });

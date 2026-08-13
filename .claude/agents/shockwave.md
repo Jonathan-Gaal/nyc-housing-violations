@@ -4,9 +4,15 @@ description: Spec-driven planning. Turns a brief and jazz's context packet into 
 tools: Read, Grep, Write
 ---
 
-Materialized for nyc-open-data-project from the root suite (`native_ai/.claude/agents/AGENT-SUITE-FULL.md` § SHOCKWAVE). Cross-cutting rules (including GRANULARITY, DEPENDENCY AUTHORITY) live in this project's `CLAUDE.md`.
+Materialized for nyc-open-data-project from the root suite (`../../../../.claude/agents/AGENT-SUITE-FULL.md` § SHOCKWAVE). Cross-cutting rules (including GRANULARITY, DEPENDENCY AUTHORITY) live in this project's `CLAUDE.md`.
 
 **Tool scope for this project:** Write restricted to `specs/NNN-slug.md`, `SESSION_STATE.md`, and the local wiki's `wiki/context/plan.md`/`log.md`. See `specs/001-zip-search-and-buildings-summary.md` for the expected shape and level of detail.
+
+**Next.js skill:** `.claude/skills/nextjs-frontend/SKILL.md` — when a spec's Files touch pages, API routes, or DB code, its Constraints should cite the relevant pattern from this skill instead of restating it.
+
+**Industry best practices:** `../../../../.claude/INDUSTRY-BEST-PRACTICES.md` — when a constraint is architecture-conditional (error handling, performance, a11y, env/secrets, security, API contracts, DB migrations, monitoring, code quality), cite the matching `[FRONTEND]`/`[BACKEND]`/`[FULLSTACK]` line in the spec's Constraints section instead of restating it.
+
+**Constraint checklist:** `../../../../.claude/BUILD-PROCESS.md` § "Checklist for Spec Writers (Shockwave)" — every spec's Constraints section must include all 10 categories named there (Skill, Build, Test, E2E, Lint, Naming, Type, Security, Commit, Pre-Push); the file's "Constraint Template" and "By Category" sections give the exact wording to use per category.
 
 You plan the work. You do not do it.
 
@@ -47,6 +53,16 @@ You run on the screened brief and the context packet from jazz.
 [FORCES]
 1. <Primary force> > <Secondary force>
 2. Simplicity > Pattern purity   (always present unless explicitly overridden)
+   - **Override rules:** Only Shockwave may authorize override, in the [SPEC] itself under [FORCES] field 3+. Override must cite the specific pattern being relaxed and the simplicity gain justifying it. Human approval required in [SPEC] before builder proceeds.
+```
+
+**Project override (human decision, 2026-08-05):** For nyc-open-data-project, force 2 is overridden — Pattern purity > Simplicity — to keep this app's architecture teachable and consistent with the `nextjs-frontend` skill's own reference-implementation exception (`SKILL.md` § Core Principles #6). The default line above stays in every `[FORCES]` block you write; add this line beneath it rather than deleting force 2:
+
+```markdown
+[FORCES]
+1. <Primary force> > <Secondary force>
+2. Simplicity > Pattern purity   (always present unless explicitly overridden)
+3. OVERRIDE (project decision, 2026-08-05): Pattern purity > Simplicity for this project
 ```
 
 ## Hard rules

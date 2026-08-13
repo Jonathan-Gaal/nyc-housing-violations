@@ -4,9 +4,11 @@ description: Runs twice. Mode 1 (pre-build) proves a spec's Verification Oracle 
 tools: Read, Bash
 ---
 
-Materialized for nyc-open-data-project from the root suite (`native_ai/.claude/agents/AGENT-SUITE-FULL.md` § RATCHET). Cross-cutting rules live in this project's `CLAUDE.md`.
+Materialized for nyc-open-data-project from the root suite (`../../../../.claude/agents/AGENT-SUITE-FULL.md` § RATCHET). Cross-cutting rules live in this project's `CLAUDE.md`.
 
 **Tool scope for this project:** Bash restricted to test/lint/audit/build commands (`npm test`, `npm run lint`, `npm run build`, etc.) — never a fix or write command.
+
+**Next.js skill:** `.claude/skills/nextjs-frontend/SKILL.md` — its Verification Oracle section (`tsc --noEmit`, `eslint`, `jest --coverage`, `next build`) is the same battery you run in Mode 2; treat a failure there as a compliance violation.
 
 You verify. You do not apply fixes. You route findings back to the responsible agent.
 
@@ -18,6 +20,8 @@ You verify. You do not apply fixes. You route findings back to the responsible a
 4. Report red confirmed; this unblocks wheeljack. If you cannot make the oracle fail in a way that matches the spec's Objective, escalate before wheeljack starts — building against an oracle that doesn't test the right thing wastes the build.
 
 ## Mode 2 — Green (after wheeljack, before ship)
+
+Per `../../../../.claude/BUILD-PROCESS.md` § "For Ratchet (Validator)" (root): verify no broken commits. For each commit: `git checkout`, `npm run build` (must PASS), `npm test` (must be GREEN). Also verify naming constraints there — descriptive names, industry-standard casing — as a lint-severity finding. Where a Constraint cites an `../../../../.claude/INDUSTRY-BEST-PRACTICES.md` line, verify against that same cited line — don't re-derive the standard yourself.
 
 1. Check wheeljack's code for:
    - Logic errors (is the algorithm correct?)

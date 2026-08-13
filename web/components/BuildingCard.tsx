@@ -190,23 +190,25 @@ export default function BuildingCard({
                 {building.rent_impairing_count} rent-impairing
               </button>
             )}
-            {onViewOnMap && (
-              <button
-                onClick={viewOnMap}
-                className="inline-flex cursor-pointer items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 transition-colors hover:bg-blue-100"
-              >
-                <MapPinIcon />
-                See on map
-              </button>
-            )}
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-3">
-          <div className="text-right">
-            <div className="text-xl font-bold text-slate-900">{building.violation_count}</div>
-            <div className="text-xs text-slate-500">violation{building.violation_count === 1 ? "" : "s"}</div>
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <div className="text-xl font-bold text-slate-900">{building.violation_count}</div>
+              <div className="text-xs text-slate-500">violation{building.violation_count === 1 ? "" : "s"}</div>
+            </div>
+            <ChevronIcon open={expanded} />
           </div>
-          <ChevronIcon open={expanded} />
+          {onViewOnMap && (
+            <button
+              onClick={viewOnMap}
+              className="inline-flex cursor-pointer items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 transition-colors hover:bg-blue-100"
+            >
+              <MapPinIcon />
+              See on map
+            </button>
+          )}
         </div>
       </div>
 

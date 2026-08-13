@@ -8,6 +8,7 @@ import type { BuildingRow, ZipSummary, HeatmapPoint } from "@/lib/queries";
 import { neighborhoodForZip } from "@/lib/zipNeighborhoods";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
+const LoadingGame = dynamic(() => import("@/components/LoadingGame"), { ssr: false });
 
 function HouseMarkIcon() {
   return (
@@ -91,6 +92,8 @@ export default function Home() {
 
   return (
     <div className="min-h-full">
+      {loading && <LoadingGame />}
+
       {/* Header */}
       <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center gap-2 px-4 py-3">

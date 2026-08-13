@@ -17,9 +17,13 @@ const SPAWN_SLOTS = [
   { x: 0.85, y: 0.48 },
 ];
 
-const LANDLORD_SIZE = 34;
+const LANDLORD_SIZE = 56;
 const LANDLORD_LIFETIME_MS = 3200;
 const RESPAWN_DELAY_MS = 400;
+
+// The plain spinner shows first; the game only takes over after this long,
+// so a quick (already-seeded) search never sees the game flash by.
+const GAME_DELAY_MS = 5000;
 
 interface Particle {
   x: number;
@@ -89,7 +93,16 @@ function drawPixelPerson(
   }
 }
 
-export default function LoadingGame() {
+function LoadingSpinner() {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-4">
+      <div className="h-14 w-14 animate-spin rounded-full border-4 border-slate-400/40 border-t-slate-700" />
+      <p className="font-mono text-sm font-medium text-slate-700">Loading…</p>
+    </div>
+  );
+}
+
+function LoadingGameCanvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [hits, setHits] = useState(0);
 
@@ -192,19 +205,15 @@ export default function LoadingGame() {
       }
 
       ctx.clearRect(0, 0, width, height);
+      // No opaque background fill here, on purpose — the wrapping div's
+      // translucent/blurred backdrop is the only "atmosphere" layer, so the
+      // page underneath stays faintly visible instead of a solid takeover.
 
-      // Night-sky backdrop for the skyline.
-      const skyGradient = ctx.createLinearGradient(0, 0, 0, height);
-      skyGradient.addColorStop(0, "#0f172a");
-      skyGradient.addColorStop(1, "#1e293b");
-      ctx.fillStyle = skyGradient;
-      ctx.fillRect(0, 0, width, height);
-
-      // Skyline silhouette with a few lit windows per building.
+      // Skyline silhouette, translucent, with a few lit windows per building.
       for (const b of skyline) {
-        ctx.fillStyle = "#334155";
+        ctx.fillStyle = "rgba(100, 116, 139, 0.4)";
         ctx.fillRect(b.x, height - b.height, b.width, b.height);
-        ctx.fillStyle = "#facc1533";
+        ctx.fillStyle = "rgba(250, 204, 21, 0.35)";
         const cols = Math.max(1, Math.floor(b.width / 14));
         const rows = Math.max(1, Math.floor(b.height / 18));
         for (let c = 0; c < cols; c++) {
@@ -255,15 +264,43 @@ export default function LoadingGame() {
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm" style={{ cursor: "none" }}>
+    <div className="relative h-full" style={{ cursor: "none" }}>
       <canvas ref={canvasRef} className="absolute inset-0" />
       <div className="pointer-events-none absolute inset-x-0 top-10 flex flex-col items-center gap-1 text-center">
-        <p className="animate-pulse font-mono text-lg font-bold tracking-wide text-amber-400 sm:text-2xl">
-          …loading… get the deadbeat landlord
+        <p className="animate-pulse font-mono text-lg font-bold tracking-wide text-amber-600 sm:text-2xl">
+          This is taking a while… get the deadbeat landlord
         </p>
-        <p className="font-mono text-xs text-slate-300 sm:text-sm">
-          Evicted: {hits}
-        </p>
+        <p className="font-mono text-xs text-slate-600 sm:text-sm">Evicted: {hits}</p>
+      </div>
+    </div>
+  );
+}
+
+export default function LoadingGame() {
+  const [showGame, setShowGame] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShowGame(true), GAME_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-400/25 backdrop-blur-sm">
+      {/* Both layers share this same backdrop and cross-fade in place, so
+          the game taking over doesn't feel like an abrupt screen change. */}
+      <div
+        className={`absolute inset-0 transition-opacity duration-700 ${
+          showGame ? "pointer-events-none opacity-0" : "opacity-100"
+        }`}
+      >
+        <LoadingSpinner />
+      </div>
+      <div
+        className={`absolute inset-0 transition-opacity duration-700 ${
+          showGame ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+      >
+        {showGame && <LoadingGameCanvas />}
       </div>
     </div>
   );

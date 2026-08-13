@@ -3,7 +3,7 @@
 import { useState } from "react";
 import dynamic from "next/dynamic";
 import type { BuildingRow, ViolationRow } from "@/lib/queries";
-import { ratingTier, ratingLabel, humanizeDaysOpen } from "@/lib/format";
+import { ratingTier, ratingLabel, humanizeDaysOpen, type RatingTier } from "@/lib/format";
 import { ratingToStars } from "@/lib/starRating";
 import StarRating from "@/components/StarRating";
 
@@ -15,11 +15,11 @@ const ViolationTimeline = dynamic(() => import("@/components/ViolationTimeline")
   ssr: false,
 });
 
-const TIER_STYLES: Record<string, { badge: string; ring: string }> = {
-  excellent: { badge: "bg-emerald-100 text-emerald-800", ring: "ring-emerald-200" },
-  good: { badge: "bg-blue-100 text-blue-800", ring: "ring-blue-200" },
-  fair: { badge: "bg-amber-100 text-amber-800", ring: "ring-amber-200" },
-  poor: { badge: "bg-red-100 text-red-800", ring: "ring-red-200" },
+// Explicit red/yellow/green severity coding — bad/fair/good.
+const TIER_STYLES: Record<RatingTier, { badge: string; ring: string }> = {
+  good: { badge: "bg-green-100 text-green-800", ring: "ring-green-200" },
+  fair: { badge: "bg-yellow-100 text-yellow-800", ring: "ring-yellow-200" },
+  bad: { badge: "bg-red-100 text-red-800", ring: "ring-red-200" },
 };
 
 function RatingBadge({ rating }: { rating: number }) {

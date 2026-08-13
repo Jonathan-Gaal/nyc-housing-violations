@@ -1,27 +1,26 @@
 // Presentation-layer formatting. Pure functions only — no JSX/CSS here so
 // they stay testable independent of the component tree.
 
-export type RatingTier = "excellent" | "good" | "fair" | "poor";
+export type RatingTier = "good" | "fair" | "bad";
 
-// Thresholds calibrated to the 0-100 score scale (specs/006-scoring-rescale-0-100.md,
-// 2026-08-12) — a x20 rescale of the prior 0-5 thresholds (>=4, >=3, >=1.5).
+// Boundaries follow standard 5-star semantics (1-2 stars terrible/poor,
+// 3 stars average, 4-5 stars good/excellent), collapsed to 3 color tiers:
+// bad below 2.5 stars (rating 50), good from 3.5 stars up (rating 70),
+// fair in between.
 export function ratingTier(rating: number): RatingTier {
-  if (rating >= 80) return "excellent";
-  if (rating >= 60) return "good";
-  if (rating >= 30) return "fair";
-  return "poor";
+  if (rating >= 70) return "good";
+  if (rating >= 50) return "fair";
+  return "bad";
 }
 
 export function ratingLabel(rating: number): string {
   switch (ratingTier(rating)) {
-    case "excellent":
-      return "Excellent";
     case "good":
       return "Good";
     case "fair":
       return "Fair";
-    case "poor":
-      return "Poor";
+    case "bad":
+      return "Bad";
   }
 }
 

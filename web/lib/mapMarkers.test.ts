@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { computeMarkerColor, computeMarkerRadius } from "./MapView";
+import { computeMarkerColor, computeMarkerRadius } from "@/lib/mapMarkers";
 
-// Regression baseline: the pre-swap `colorFor` implementation, copied
-// verbatim from the Leaflet-era MapView.tsx, so these tests prove the
-// extracted functions produce byte-identical output before the rendering
-// engine underneath them changes. See specs/009-mapbox-swap.md.
+// Regression baseline: the original inline `colorFor`/radius formulas this
+// module's functions were extracted from, so these tests prove
+// byte-identical output.
 function legacyColorFor(weight: number, max: number): string {
   const ratio = max > 0 ? Math.min(weight / max, 1) : 0;
   const hue = 120 - ratio * 120;

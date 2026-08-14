@@ -28,12 +28,12 @@ export default function AddressSearchResults({
 
   return (
     <div>
-      <h2 className="mb-3 text-sm font-semibold text-slate-700">
+      <h2 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">
         {buildings.length} result{buildings.length === 1 ? "" : "s"} for &quot;{query}&quot;
         {truncated && " — showing the first 50, refine your search for more"}
       </h2>
       {buildings.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-300 bg-white px-5 py-9 text-center text-slate-500">
+        <div className="rounded-xl border border-dashed border-slate-300 bg-white px-5 py-9 text-center text-slate-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400">
           <p>
             No buildings with currently open violations matched that search.
             This only searches buildings already indexed from a zip search —

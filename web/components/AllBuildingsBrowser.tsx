@@ -93,10 +93,10 @@ export default function AllBuildingsBrowser({
   }
 
   return (
-    <div className="mt-4 overflow-hidden rounded-xl border border-blue-200 bg-white shadow-sm">
+    <div className="mt-4 overflow-hidden rounded-xl border border-blue-200 bg-white shadow-sm dark:border-blue-900 dark:bg-slate-800">
       <button
         onClick={toggle}
-        className="flex w-full cursor-pointer items-center justify-between gap-4 bg-blue-600 px-3.5 py-2.5 text-left transition-colors hover:bg-blue-700"
+        className="flex w-full cursor-pointer items-center justify-between gap-4 bg-blue-600 px-3.5 py-2.5 text-left transition-colors hover:bg-blue-700 dark:bg-blue-800 dark:hover:bg-blue-700"
       >
         <span className="flex items-center gap-2.5 text-sm font-bold text-white">
           <ListIcon />
@@ -110,12 +110,12 @@ export default function AllBuildingsBrowser({
       {expanded && (
         <div className="px-3 pb-3 pt-2">
           {loading && !data && (
-            <div className="flex items-center gap-2 py-2 text-sm text-slate-500">
-              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />
+            <div className="flex items-center gap-2 py-2 text-sm text-slate-500 dark:text-slate-400">
+              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600 dark:border-slate-600 dark:border-t-slate-300" />
               Loading buildings…
             </div>
           )}
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
           {data && (
             // Capped to a normal reading width even inside the wide map
@@ -123,7 +123,7 @@ export default function AllBuildingsBrowser({
             // legal boilerplate) stretches into single lines 1000+px wide
             // instead of wrapping/truncating like it does in the sidebar.
             <div className="mx-auto max-w-2xl">
-              <div className="mb-2 flex items-center justify-between text-xs text-slate-500">
+              <div className="mb-2 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
                 <span>{data.totalBuildings.toLocaleString()} buildings</span>
                 <label className="flex items-center gap-1.5">
                   Sort:
@@ -131,7 +131,7 @@ export default function AllBuildingsBrowser({
                     value={sort}
                     onChange={handleSortChange}
                     disabled={loading}
-                    className="cursor-pointer rounded-md border border-slate-200 bg-white px-1.5 py-1 text-xs font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="cursor-pointer rounded-md border border-slate-200 bg-white px-1.5 py-1 text-xs font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
                   >
                     <option value="worst">Worst rated first</option>
                     <option value="best">Best rated first</option>
@@ -160,33 +160,33 @@ export default function AllBuildingsBrowser({
                   <button
                     onClick={() => loadPage(1)}
                     disabled={data.page <= 1 || loading}
-                    className="cursor-pointer rounded-full border border-slate-200 px-2.5 py-1 font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="cursor-pointer rounded-full border border-slate-200 px-2.5 py-1 font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
                   >
                     « First
                   </button>
                   <button
                     onClick={() => loadPage(data.page - 1)}
                     disabled={data.page <= 1 || loading}
-                    className="cursor-pointer rounded-full border border-slate-200 px-2.5 py-1 font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="cursor-pointer rounded-full border border-slate-200 px-2.5 py-1 font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
                   >
                     Previous
                   </button>
                 </div>
-                <span className="text-slate-500">
+                <span className="text-slate-500 dark:text-slate-400">
                   Page {data.page} of {data.totalPages}
                 </span>
                 <div className="flex items-center gap-1.5">
                   <button
                     onClick={() => loadPage(data.page + 1)}
                     disabled={data.page >= data.totalPages || loading}
-                    className="cursor-pointer rounded-full border border-slate-200 px-2.5 py-1 font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="cursor-pointer rounded-full border border-slate-200 px-2.5 py-1 font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
                   >
                     Next
                   </button>
                   <button
                     onClick={() => loadPage(data.totalPages)}
                     disabled={data.page >= data.totalPages || loading}
-                    className="cursor-pointer rounded-full border border-slate-200 px-2.5 py-1 font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="cursor-pointer rounded-full border border-slate-200 px-2.5 py-1 font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
                   >
                     Last »
                   </button>
@@ -195,7 +195,7 @@ export default function AllBuildingsBrowser({
 
               <form
                 onSubmit={handlePageJump}
-                className="mt-2 flex items-center justify-center gap-1.5 text-xs text-slate-500"
+                className="mt-2 flex items-center justify-center gap-1.5 text-xs text-slate-500 dark:text-slate-400"
               >
                 <label htmlFor="browse-all-page-jump">Go to page</label>
                 <input
@@ -206,12 +206,12 @@ export default function AllBuildingsBrowser({
                   value={pageInputOverride ?? String(data.page)}
                   onChange={(e) => setPageInputOverride(e.target.value)}
                   disabled={loading}
-                  className="w-14 rounded-md border border-slate-200 px-1.5 py-1 text-center text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="w-14 rounded-md border border-slate-200 px-1.5 py-1 text-center text-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
                 />
                 <button
                   type="submit"
                   disabled={loading}
-                  className="cursor-pointer rounded-full border border-slate-200 px-2.5 py-1 font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="cursor-pointer rounded-full border border-slate-200 px-2.5 py-1 font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
                 >
                   Go
                 </button>

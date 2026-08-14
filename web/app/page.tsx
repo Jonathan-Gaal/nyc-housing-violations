@@ -5,6 +5,8 @@ import dynamic from "next/dynamic";
 import BuildingCard from "@/components/BuildingCard";
 import AllBuildingsBrowser from "@/components/AllBuildingsBrowser";
 import AddressSearchResults from "@/components/AddressSearchResults";
+import SkylineBackdrop from "@/components/SkylineBackdrop";
+import ThemeToggle from "@/components/ThemeToggle";
 import type { AddressSearchResult, BuildingRow, ZipSummary, HeatmapPoint } from "@/lib/queries";
 import type { MapFocusPoint } from "@/components/MapView";
 import { neighborhoodForZip } from "@/lib/zipNeighborhoods";
@@ -49,11 +51,15 @@ function StatCard({
   tone?: "default" | "danger";
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 text-center shadow-sm">
-      <div className={`text-2xl font-bold ${tone === "danger" ? "text-red-600" : "text-slate-900"}`}>
+    <div className="rounded-xl border border-slate-200 bg-white p-3 text-center shadow-sm dark:border-slate-700 dark:bg-slate-800">
+      <div
+        className={`text-2xl font-bold ${
+          tone === "danger" ? "text-red-600 dark:text-red-400" : "text-slate-900 dark:text-slate-100"
+        }`}
+      >
         {value}
       </div>
-      <div className="mt-0.5 text-xs font-medium text-slate-500">{label}</div>
+      <div className="mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">{label}</div>
     </div>
   );
 }
@@ -168,23 +174,32 @@ export default function Home() {
           (node_modules/leaflet/dist/leaflet.css's .leaflet-top/.leaflet-bottom),
           so the old z-10 let the map render on top of this sticky header
           once it scrolled underneath. */}
-      <header className="sticky top-0 z-[1100] border-b border-slate-200 bg-white/90 backdrop-blur">
+      <header className="sticky top-0 z-[1100] border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-700 dark:bg-slate-900/90">
         <div className="mx-auto flex max-w-3xl items-center gap-2 px-4 py-2.5">
           <HouseMarkIcon />
-          <span className="text-lg font-bold tracking-tight text-slate-900">Open Violation NYC</span>
-          <span className="ml-auto hidden text-xs text-slate-400 sm:block">
+          <span className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
+            Open Violation NYC
+          </span>
+          <span className="ml-auto hidden text-xs text-slate-400 dark:text-slate-500 sm:block">
             Data: NYC Dept. of Housing Preservation &amp; Development
           </span>
+          <ThemeToggle />
         </div>
       </header>
 
       {/* Hero + search */}
-      <section className="border-b border-slate-200 bg-gradient-to-b from-blue-50 to-white">
-        <div className="mx-auto max-w-3xl px-4 py-8 text-center">
-          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
+      <section className="relative overflow-hidden border-b border-slate-200 bg-gradient-to-b from-blue-50 to-white dark:border-slate-700 dark:from-slate-800 dark:to-slate-900">
+        {/* Decorative skyline, faded so it never competes with the text/search
+            bar above it and disappears before the section's bottom edge —
+            i.e. it never bleeds into <main>. */}
+        <SkylineBackdrop className="pointer-events-none absolute inset-x-0 bottom-0 h-40 w-full text-blue-900/10 dark:text-blue-300/10 sm:h-48" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-blue-50/60 via-blue-50/20 to-white dark:from-slate-800/60 dark:via-slate-800/20 dark:to-slate-900" />
+
+        <div className="relative mx-auto max-w-3xl px-4 py-8 text-center">
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-50 sm:text-4xl">
             Know before you sign the lease
           </h1>
-          <p className="mx-auto mt-3 max-w-xl text-slate-600">
+          <p className="mx-auto mt-3 max-w-xl text-slate-600 dark:text-slate-300">
             Search open housing violations by zip code, street, or address so
             you can steer clear of the worst-maintained buildings and find a
             genuinely safe place to live.
@@ -205,7 +220,7 @@ export default function Home() {
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Zip, street, or address — e.g. 11106 or Broadway"
-                className="w-full rounded-full border border-slate-300 bg-white py-2 pl-10 pr-4 text-sm shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                className="w-full rounded-full border border-slate-300 bg-white py-2 pl-10 pr-4 text-sm shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-blue-400 dark:focus:ring-blue-900"
               />
             </div>
             <button
@@ -217,7 +232,7 @@ export default function Home() {
             </button>
           </form>
           {isCompleteZipFormat && !isRecognizedZip && (
-            <p className="mt-2 text-xs font-medium text-amber-600">
+            <p className="mt-2 text-xs font-medium text-amber-600 dark:text-amber-400">
               Doesn&apos;t look like a recognized NYC zip code — you can still search.
             </p>
           )}
@@ -226,13 +241,13 @@ export default function Home() {
 
       <main className="mx-auto max-w-6xl px-4 py-6">
         {error && (
-          <div className="mx-auto mb-6 max-w-3xl flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700">
+          <div className="mx-auto mb-6 max-w-3xl flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
             {error}
           </div>
         )}
 
         {!hasSearched && !error && (
-          <div className="mx-auto max-w-3xl rounded-xl border border-dashed border-slate-300 bg-white px-5 py-9 text-center text-slate-500">
+          <div className="mx-auto max-w-3xl rounded-xl border border-dashed border-slate-300 bg-white px-5 py-9 text-center text-slate-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400">
             Try a New York City zip code, street, or address above to see how
             buildings in that area are rated.
           </div>
@@ -256,11 +271,11 @@ export default function Home() {
 
             {buildings.length === 0 ? (
               isKnownNycZip(searchedZip) ? (
-                <div className="mx-auto max-w-3xl rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-6 text-center text-emerald-800">
+                <div className="mx-auto max-w-3xl rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-6 text-center text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
                   No open violations found for zip {searchedZip}. Nice.
                 </div>
               ) : (
-                <div className="mx-auto max-w-3xl rounded-xl border border-amber-200 bg-amber-50 px-5 py-6 text-center text-amber-800">
+                <div className="mx-auto max-w-3xl rounded-xl border border-amber-200 bg-amber-50 px-5 py-6 text-center text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
                   <p className="font-semibold">No such zip code</p>
                   <p className="mt-1 text-sm">
                     &quot;{searchedZip}&quot; doesn&apos;t appear to be a recognized NYC zip code —
@@ -271,7 +286,7 @@ export default function Home() {
             ) : (
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-[360px_1fr]">
                 <aside className="order-2 lg:order-1">
-                  <h2 className="mb-3 text-sm font-semibold text-slate-700">
+                  <h2 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">
                     Top 10 worst buildings in{" "}
                     {neighborhoodForZip(searchedZip)
                       ? `${neighborhoodForZip(searchedZip)}, ${searchedZip}`
@@ -310,7 +325,7 @@ export default function Home() {
         )}
       </main>
 
-      <footer className="border-t border-slate-200 py-5 text-center text-xs text-slate-400">
+      <footer className="border-t border-slate-200 py-5 text-center text-xs text-slate-400 dark:border-slate-700 dark:text-slate-500">
         Violation data from NYC Open Data (HPD). Ratings are calculated
         deterministically from violation count, age, and severity — not by AI.
       </footer>

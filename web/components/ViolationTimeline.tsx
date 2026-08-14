@@ -45,7 +45,7 @@ export default function ViolationTimeline({ violations }: { violations: Violatio
 
   if (timelineData.buckets.length === 0) {
     return (
-      <p className="py-2 text-sm text-slate-500">
+      <p className="py-2 text-sm text-slate-500 dark:text-slate-400">
         No violation history to chart{timelineData.excludedCount > 0 ? " (dates unavailable)" : ""}.
       </p>
     );
@@ -82,14 +82,14 @@ export default function ViolationTimeline({ violations }: { violations: Violatio
 
   return (
     <div className="mb-4">
-      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
         Violation Timeline {timelineData.collapsedToYearBuckets ? "(by year)" : "(by month)"}
       </h4>
       <div style={{ height: 220 }}>
         <Bar data={chartData} options={CHART_OPTIONS} />
       </div>
       {timelineData.excludedCount > 0 && (
-        <p className="mt-1 text-xs text-slate-400">
+        <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
           {timelineData.excludedCount} violation{timelineData.excludedCount === 1 ? "" : "s"} excluded
           (missing inspection date).
         </p>

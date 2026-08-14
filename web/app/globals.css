@@ -1,11 +1,18 @@
 @import "tailwindcss";
 
-/* Fixed light theme by design — this is a consumer-facing listing tool
-   (Zillow/StreetEasy-style trust cues), not a dev tool, so we don't follow
-   OS dark-mode preference here. */
+/* Manual (class-based) dark mode, toggled by the header switch — not
+   OS-preference-based, so the user's explicit choice always wins over
+   prefers-color-scheme. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   --background: #f8fafc;
   --foreground: #0f172a;
+}
+
+.dark {
+  --background: #0f172a;
+  --foreground: #f1f5f9;
 }
 
 @theme inline {

@@ -130,7 +130,7 @@ export default function MapView({
 
   if (points.length === 0) {
     return (
-      <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
+      <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
         No mapped violations for this search.
       </div>
     );
@@ -140,7 +140,7 @@ export default function MapView({
   const center: [number, number] = [points[0].latitude, points[0].longitude];
 
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 shadow-sm">
+    <div className="overflow-hidden rounded-xl border border-slate-200 shadow-sm dark:border-slate-700">
       <MapContainer
         ref={mapRef}
         center={center}
@@ -173,7 +173,7 @@ export default function MapView({
           </CircleMarker>
         ))}
       </MapContainer>
-      <div className="flex items-center gap-2 border-t border-slate-100 bg-slate-50 px-3.5 py-1.5 text-xs text-slate-500">
+      <div className="flex items-center gap-2 border-t border-slate-100 bg-slate-50 px-3.5 py-1.5 text-xs text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
         <span
           className="h-2.5 w-2.5 rounded-full"
           style={{ backgroundColor: computeMarkerColor(0, 1) }}

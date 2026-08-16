@@ -84,7 +84,7 @@ test.describe("Premium paywall (spec 020)", () => {
 
     await page.goto("/favorites");
 
-    const paywallButton = page.getByRole("link", { name: "Sign up for Landlord Profile" });
+    const paywallButton = page.getByRole("link", { name: "Sign up for Favorites" });
     await expect(paywallButton).toBeVisible();
     const href = await paywallButton.getAttribute("href");
     expect(href).toMatch(/^\/signup\?intent=premium&callbackUrl=/);

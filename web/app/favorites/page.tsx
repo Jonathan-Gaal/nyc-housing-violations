@@ -62,7 +62,7 @@ function PremiumPaywallCard({
   const ctaHref = isSignedIn
     ? `/account/upgrade?callbackUrl=${encodeURIComponent(callbackUrl)}`
     : `/signup?intent=premium&callbackUrl=${encodeURIComponent(callbackUrl)}`;
-  const buttonLabel = isSignedIn ? "Upgrade to Premium" : "Sign up for Landlord Profile";
+  const buttonLabel = isSignedIn ? "Upgrade to Premium" : "Sign up for Favorites";
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-700 dark:bg-slate-800">

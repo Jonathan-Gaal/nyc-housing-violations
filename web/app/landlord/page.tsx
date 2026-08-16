@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import StarRating from "@/components/StarRating";
 import { ratingToStars } from "@/lib/starRating";
 import { ratingTier, ratingLabel, type RatingTier } from "@/lib/format";
+import { useAuth } from "@/hooks/useAuth";
 
 interface LandlordProfile {
   landlordKey: string;
@@ -25,6 +26,88 @@ const TIER_STYLES: Record<RatingTier, string> = {
   fair: "bg-yellow-100 text-yellow-800",
   bad: "bg-red-100 text-red-800",
 };
+
+function BookmarkIcon({ filled }: { filled: boolean }) {
+  // Same icon shape as BuildingCard.tsx's BookmarkIcon — duplicated rather
+  // than shared to stay within this spec's 4-file cap (matches this
+  // project's documented SESSION_COOKIE_NAME-duplication precedent for the
+  // same file-cap tradeoff).
+  return filled ? (
+    <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+      <path d="M5.5 3A1.5 1.5 0 004 4.5v12.19a.75.75 0 001.17.62L10 14.06l4.83 3.25a.75.75 0 001.17-.62V4.5A1.5 1.5 0 0014.5 3h-9z" />
+    </svg>
+  ) : (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-4 w-4">
+      <path d="M5.5 3.75A1.75 1.75 0 017.25 2h5.5a1.75 1.75 0 011.75 1.75v13.5l-5.5-3.7-5.5 3.7V3.75z" />
+    </svg>
+  );
+}
+
+// Save/unsave a landlord profile against spec 019's /api/favorites API,
+// same optimistic-toggle/revert-on-failure shape as BuildingCard.tsx's
+// SaveBuildingButton, keyed on type: 'landlord' instead of 'building'.
+function SaveLandlordButton({ landlordKey }: { landlordKey: string }) {
+  const { user } = useAuth();
+  const [isSaved, setIsSaved] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSignInPrompt, setShowSignInPrompt] = useState(false);
+
+  async function toggleSaved() {
+    if (!user) {
+      setShowSignInPrompt(true);
+      return;
+    }
+
+    const nextSaved = !isSaved;
+    setIsSaved(nextSaved);
+    setShowSignInPrompt(false);
+    setIsSubmitting(true);
+    try {
+      const response = await fetch("/api/favorites", {
+        method: nextSaved ? "POST" : "DELETE",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ type: "landlord", key: landlordKey }),
+      });
+      if (response.status === 401) {
+        setIsSaved(!nextSaved);
+        setShowSignInPrompt(true);
+        return;
+      }
+      if (!response.ok) {
+        setIsSaved(!nextSaved);
+      }
+    } catch {
+      setIsSaved(!nextSaved);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <span className="relative inline-flex">
+      <button
+        type="button"
+        onClick={toggleSaved}
+        disabled={isSubmitting}
+        aria-label={isSaved ? "Remove from favorites" : "Save landlord profile"}
+        aria-pressed={isSaved}
+        className={`flex h-7 w-7 items-center justify-center rounded-full border transition-colors disabled:opacity-50 ${
+          isSaved
+            ? "border-amber-300 text-amber-500 hover:text-amber-600"
+            : "border-slate-200 text-slate-400 hover:text-slate-600"
+        }`}
+      >
+        <BookmarkIcon filled={isSaved} />
+      </button>
+      {showSignInPrompt && (
+        <span className="absolute top-8 left-0 z-10 w-max max-w-[10rem] rounded-md bg-slate-900 px-2 py-1 text-xs text-white shadow-lg">
+          Sign in to save
+        </span>
+      )}
+    </span>
+  );
+}
 
 function LandlordProfileContent() {
   const searchParams = useSearchParams();
@@ -93,6 +176,7 @@ function LandlordProfileContent() {
               >
                 {ratingToStars(profile.rating).toFixed(1)} · {ratingLabel(profile.rating)}
               </span>
+              <SaveLandlordButton landlordKey={profile.landlordKey} />
             </div>
 
             <div className="mt-6 grid grid-cols-3 gap-3">

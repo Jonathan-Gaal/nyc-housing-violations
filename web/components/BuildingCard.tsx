@@ -9,6 +9,7 @@ import { ratingToStars } from "@/lib/starRating";
 import StarRating from "@/components/StarRating";
 import type { LandlordInfo } from "@/lib/landlords";
 import type { LandlordProfile } from "@/lib/landlordProfile";
+import { useAuth } from "@/hooks/useAuth";
 
 // Chart.js is a heavy library — dynamically imported (ssr: false) so it's
 // only pulled into the client bundle once a building card is expanded, same
@@ -100,6 +101,89 @@ function WarningIcon() {
   );
 }
 
+function BookmarkIcon({ filled }: { filled: boolean }) {
+  return filled ? (
+    <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+      <path d="M5.5 3A1.5 1.5 0 004 4.5v12.19a.75.75 0 001.17.62L10 14.06l4.83 3.25a.75.75 0 001.17-.62V4.5A1.5 1.5 0 0014.5 3h-9z" />
+    </svg>
+  ) : (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-4 w-4">
+      <path d="M5.5 3.75A1.75 1.75 0 017.25 2h5.5a1.75 1.75 0 011.75 1.75v13.5l-5.5-3.7-5.5 3.7V3.75z" />
+    </svg>
+  );
+}
+
+// Save/unsave a building against spec 019's /api/favorites API. useAuth()'s
+// user !== null check is a UI convenience only (renders as a disabled/
+// login-prompt state) — the actual enforcement is that route's own
+// verifySessionCookie() call; a logged-out user who somehow triggers the
+// fetch anyway just gets a clean 401 (spec 021 Intellectual Control), which
+// this button surfaces as an inline message rather than a silent failure.
+function SaveBuildingButton({ buildingId }: { buildingId: string }) {
+  const { user } = useAuth();
+  const [isSaved, setIsSaved] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSignInPrompt, setShowSignInPrompt] = useState(false);
+
+  async function toggleSaved(event: React.MouseEvent) {
+    event.stopPropagation();
+
+    if (!user) {
+      setShowSignInPrompt(true);
+      return;
+    }
+
+    const nextSaved = !isSaved;
+    setIsSaved(nextSaved); // optimistic
+    setShowSignInPrompt(false);
+    setIsSubmitting(true);
+    try {
+      const response = await fetch("/api/favorites", {
+        method: nextSaved ? "POST" : "DELETE",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ type: "building", key: buildingId }),
+      });
+      if (response.status === 401) {
+        setIsSaved(!nextSaved); // revert
+        setShowSignInPrompt(true);
+        return;
+      }
+      if (!response.ok) {
+        setIsSaved(!nextSaved); // revert on any other failure
+      }
+    } catch {
+      setIsSaved(!nextSaved); // revert on network failure
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <span className="relative inline-flex">
+      <button
+        type="button"
+        onClick={toggleSaved}
+        disabled={isSubmitting}
+        aria-label={isSaved ? "Remove from favorites" : "Save building"}
+        aria-pressed={isSaved}
+        className={`flex h-6 w-6 items-center justify-center rounded-full transition-colors disabled:opacity-50 ${
+          isSaved
+            ? "text-amber-500 hover:text-amber-600 dark:text-amber-400"
+            : "text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+        }`}
+      >
+        <BookmarkIcon filled={isSaved} />
+      </button>
+      {showSignInPrompt && (
+        <span className="absolute top-7 right-0 z-10 w-max max-w-[10rem] rounded-md bg-slate-900 px-2 py-1 text-xs text-white shadow-lg dark:bg-slate-700">
+          Sign in to save
+        </span>
+      )}
+    </span>
+  );
+}
+
 export default function BuildingCard({
   building,
   onViewOnMap,
@@ -187,8 +271,11 @@ export default function BuildingCard({
 
   return (
     <div
-      className={`rounded-xl border border-slate-200 bg-white shadow-sm ring-1 ${ring} transition-shadow hover:shadow-md dark:border-slate-700 dark:bg-slate-800`}
+      className={`relative rounded-xl border border-slate-200 bg-white shadow-sm ring-1 ${ring} transition-shadow hover:shadow-md dark:border-slate-700 dark:bg-slate-800`}
     >
+      <div className="absolute top-2.5 right-2.5 z-[1]">
+        <SaveBuildingButton buildingId={building.building_id} />
+      </div>
       <div
         onClick={toggle}
         onKeyDown={(e) => {
@@ -200,7 +287,7 @@ export default function BuildingCard({
         role="button"
         tabIndex={0}
         data-testid="building-card-toggle"
-        className="flex w-full cursor-pointer items-start justify-between gap-3 p-3 text-left"
+        className="flex w-full cursor-pointer items-start justify-between gap-3 p-3 pr-9 text-left"
       >
         <div className="min-w-0">
           <h3 className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">

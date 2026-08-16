@@ -1,13 +1,26 @@
-// Stripe webhook handler (spec 016) — the actual source of truth for tier
-// changes. A signature-verified event is the only thing this route ever
-// trusts; client-reported "payment succeeded" signals (e.g. from the
-// /upgrade route's own response) are never sufficient to flip
-// users.tier. See spec 016's Design Pattern (webhook-as-source-of-truth)
-// and Intellectual Control note: an attacker POSTing a fake
-// checkout.session.completed payload directly to this route, without a
-// valid Stripe-Signature header, must never be able to grant free premium
-// access — that is the single most important property this file has to
-// prove, not just claim (spec 016 Security Constraints).
+// Stripe webhook handler (spec 016, corrected by spec 023) — the actual
+// source of truth for tier changes. A signature-verified event is the only
+// thing this route ever trusts; client-reported "payment succeeded" signals
+// (e.g. from the /upgrade route's own response) are never sufficient to
+// flip users.tier. See spec 016's Design Pattern (webhook-as-source-of-truth)
+// and Intellectual Control note: an attacker POSTing a fake webhook payload
+// directly to this route, without a valid Stripe-Signature header, must
+// never be able to grant free premium access — that is the single most
+// important property this file has to prove, not just claim (spec 016
+// Security Constraints).
+//
+// Spec 023 correction: spec 022 replaced the Checkout-redirect flow with an
+// in-app subscription created directly via stripeClient.subscriptions.create
+// (payment_behavior: 'default_incomplete') — checkout.session.completed is
+// Checkout-only and NEVER fires for that flow. The correct events, verified
+// against Stripe's own Elements + PaymentIntents subscription-integration
+// guide, are customer.subscription.created/.updated, gated on
+// status === 'active' (a default_incomplete subscription starts 'incomplete'
+// and transitions to 'active' only once the initial PaymentIntent confirms —
+// the event *type* firing is not itself proof payment succeeded; the
+// *status* field is). handleCheckoutSessionCompleted is removed entirely
+// (not left dead-but-reachable) since checkout.session.completed will never
+// fire in this app's actual usage going forward.
 import type Stripe from 'stripe';
 import { getPool } from '@/lib/pgClient';
 import { getStripeClient } from '@/lib/stripe';
@@ -50,22 +63,43 @@ function extractFirebaseUid(
   return typeof firebaseUid === 'string' && firebaseUid.trim().length > 0 ? firebaseUid : null;
 }
 
-async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session): Promise<void> {
-  const firebaseUid = extractFirebaseUid(session) ?? session.client_reference_id;
+// Handles customer.subscription.created and customer.subscription.updated
+// (spec 023) — both routed here since either can carry the transition into
+// status: 'active'. Only grants premium when status has actually reached
+// 'active'; any other status (e.g. 'incomplete', 'past_due') is a no-op on
+// this event, matching spec 023's Edge Cases (a failed/pending renewal is
+// not a revocation — customer.subscription.deleted remains the only
+// revocation trigger). setUserTier()'s existing idempotency (UPDATE keyed
+// on firebase_uid) is required here specifically because .updated fires on
+// every subsequent lifecycle change too (renewals, plan changes), not just
+// the initial activation — this handler must tolerate being called many
+// times over a subscription's life and produce the same no-op result once
+// tier is already 'premium'.
+async function handleSubscriptionActivated(subscription: Stripe.Subscription): Promise<void> {
+  const firebaseUid = extractFirebaseUid(subscription);
   if (!firebaseUid) {
-    // Defensive edge case (spec 016 Edge Cases): a webhook we cannot
-    // resolve to a known user is logged as an anomaly, not silently
-    // dropped and not used to speculatively create a row.
-    console.error('stripe webhook: checkout.session.completed with no resolvable firebase_uid', {
-      sessionId: session.id,
+    // Defensive edge case (spec 023 Edge Cases): shouldn't happen given
+    // spec 022 always sets metadata.firebase_uid on subscription creation,
+    // but a webhook we cannot resolve to a known user is logged as an
+    // anomaly, not silently dropped and not used to speculatively write a row.
+    console.error('stripe webhook: subscription event with no resolvable firebase_uid', {
+      subscriptionId: subscription.id,
     });
     return;
   }
 
-  const stripeCustomerId = typeof session.customer === 'string' ? session.customer : (session.customer?.id ?? null);
+  if (subscription.status !== 'active') {
+    // Not every .created/.updated event means "grant premium" — only the
+    // one(s) where status has actually reached 'active' (spec 023 Design
+    // Pattern: status-checked, not just event-type-trusted).
+    return;
+  }
+
+  const stripeCustomerId =
+    typeof subscription.customer === 'string' ? subscription.customer : (subscription.customer?.id ?? null);
   const rowsUpdated = await setUserTier(firebaseUid, 'premium', stripeCustomerId, null);
   if (rowsUpdated === 0) {
-    console.error('stripe webhook: checkout.session.completed for unknown firebase_uid', { firebaseUid });
+    console.error('stripe webhook: subscription activated for unknown firebase_uid', { firebaseUid });
   }
 }
 
@@ -115,15 +149,15 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     switch (event.type) {
-      case 'checkout.session.completed':
-        await handleCheckoutSessionCompleted(event.data.object);
+      case 'customer.subscription.created':
+      case 'customer.subscription.updated':
+        await handleSubscriptionActivated(event.data.object);
         break;
       case 'customer.subscription.deleted':
         await handleSubscriptionDeleted(event.data.object);
         break;
       default:
-        // Other event types (e.g. customer.subscription.updated) are
-        // acknowledged but not acted on yet — not an error.
+        // Other event types are acknowledged but not acted on — not an error.
         break;
     }
   } catch {

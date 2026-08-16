@@ -150,10 +150,26 @@ test.describe("Split login/signup (spec 018)", () => {
     await expect(page).toHaveURL("/");
   });
 
-  test("(d) signup with intent=premium redirects to /account/upgrade, not straight to callbackUrl", async ({
+  test("(d) signup with intent=premium redirects to /account/upgrade, not straight to callbackUrl, and never itself calls POST /api/users/upgrade", async ({
     page,
   }) => {
     test.skip(firebaseClientApiKeyIsPlaceholder, FIREBASE_CREDENTIAL_SKIP_REASON);
+
+    // spec 023's settled decision: signup/page.tsx performs exactly one job
+    // for intent=premium — redirecting to /account/upgrade. All payment-step
+    // work (including the POST /api/users/upgrade call) happens exclusively
+    // on that destination page, never inline on /signup itself. A request
+    // spy scoped to the time before navigation completes proves /signup
+    // never fires that call on its own.
+    let upgradeRequestFiredBeforeNavigatingAway = false;
+    page.on("request", (request) => {
+      if (
+        request.url().includes("/api/users/upgrade") &&
+        page.url().includes("/signup")
+      ) {
+        upgradeRequestFiredBeforeNavigatingAway = true;
+      }
+    });
 
     await page.goto("/signup?intent=premium&callbackUrl=%2Flandlord");
     await page.getByLabel("Email").fill(`premium-user-${Date.now()}@example.com`);
@@ -161,7 +177,22 @@ test.describe("Split login/signup (spec 018)", () => {
     await page.getByLabel("Confirm password").fill("a-valid-password-1");
     await page.getByRole("button", { name: /create account/i }).click();
 
+    // A real navigation to /account/upgrade, not an inline render on /signup.
     await expect(page).toHaveURL(/\/account\/upgrade\?callbackUrl=%2Flandlord/);
+    expect(upgradeRequestFiredBeforeNavigatingAway).toBe(false);
+  });
+
+  test("(f, spec 023) /signup never imports Stripe.js or renders payment UI — /account/upgrade is the only page that does", async ({
+    page,
+  }) => {
+    // Purely static — runs unconditionally, no Firebase project needed.
+    // Proves the rejected inline-render option was never implemented: no
+    // Stripe Elements iframe, no "Confirm upgrade" button, ever appears on
+    // /signup regardless of query params.
+    await page.goto("/signup?intent=premium&callbackUrl=%2Flandlord");
+
+    await expect(page.locator('iframe[name^="__privateStripeFrame"]')).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /confirm upgrade/i })).toHaveCount(0);
   });
 
   test("(e) show/hide toggle flips each password input's type on login", async ({ page }) => {

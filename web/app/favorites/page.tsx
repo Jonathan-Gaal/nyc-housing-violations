@@ -5,8 +5,9 @@
 // pattern. Already covered by middleware.ts's PROTECTED_PATHS (spec 019
 // added /favorites there in anticipation of this page).
 //
-// No tier check here — premium-gating/paywall treatment of this page is
-// spec 020's job, which edits this file in place afterward.
+// Premium-gated (spec 020): favorites are a premium feature, same
+// paywall treatment (shared visual language, not shared component code, to
+// stay within file caps) as app/landlord/page.tsx.
 "use client";
 
 import { useEffect, useState } from "react";
@@ -16,6 +17,7 @@ import StarRating from "@/components/StarRating";
 import type { BuildingRow } from "@/lib/queries";
 import { ratingToStars } from "@/lib/starRating";
 import { ratingTier, ratingLabel, type RatingTier } from "@/lib/format";
+import { useAuth } from "@/hooks/useAuth";
 
 interface FavoriteLandlord {
   landlordKey: string;
@@ -42,6 +44,42 @@ function isFavoritesResponse(value: unknown): value is FavoritesResponse {
     value !== null &&
     Array.isArray((value as { buildings?: unknown }).buildings) &&
     Array.isArray((value as { landlords?: unknown }).landlords)
+  );
+}
+
+// Paywall card (spec 020) — same copy/styling shape as
+// app/landlord/page.tsx's PremiumPaywallCard, duplicated rather than shared
+// to stay within this spec's file cap. useAuth()'s user !== null distinguishes
+// the two required CTA branches: signed-out -> /signup?intent=premium (spec
+// 018's page), signed-in-but-free -> /account/upgrade (spec 022's page).
+function PremiumPaywallCard({
+  isSignedIn,
+  callbackUrl,
+}: {
+  isSignedIn: boolean;
+  callbackUrl: string;
+}) {
+  const ctaHref = isSignedIn
+    ? `/account/upgrade?callbackUrl=${encodeURIComponent(callbackUrl)}`
+    : `/signup?intent=premium&callbackUrl=${encodeURIComponent(callbackUrl)}`;
+  const buttonLabel = isSignedIn ? "Upgrade to Premium" : "Sign up for Landlord Profile";
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-700 dark:bg-slate-800">
+      <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+        Favorites are a premium feature
+      </h2>
+      <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+        Save buildings and landlord profiles to come back to later — available on the premium
+        tier.
+      </p>
+      <Link
+        href={ctaHref}
+        className="mt-4 inline-block rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+      >
+        {buttonLabel}
+      </Link>
+    </div>
   );
 }
 
@@ -85,31 +123,34 @@ function LandlordFavoriteCard({ landlord }: { landlord: FavoriteLandlord }) {
 }
 
 export default function FavoritesPage() {
+  const { user, loading: authLoading } = useAuth();
   const [favorites, setFavorites] = useState<FavoritesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [premiumRequired, setPremiumRequired] = useState(false);
 
   useEffect(() => {
     let isCurrentRequest = true;
 
     fetch("/api/favorites", { credentials: "include" })
       .then(async (response) => {
-        if (response.status === 401) {
-          return { user: null, error: "Sign in to view your saved buildings and landlords." };
+        if (response.status === 401 || response.status === 403) {
+          return { favorites: null, error: null, premiumRequired: true };
         }
         if (!response.ok) {
-          return { user: null, error: "Failed to load favorites." };
+          return { favorites: null, error: "Failed to load favorites.", premiumRequired: false };
         }
         const payload: unknown = await response.json();
         if (!isFavoritesResponse(payload)) {
-          return { user: null, error: "Failed to load favorites." };
+          return { favorites: null, error: "Failed to load favorites.", premiumRequired: false };
         }
-        return { user: payload, error: null };
+        return { favorites: payload, error: null, premiumRequired: false };
       })
       .then((result) => {
         if (!isCurrentRequest) return;
-        setFavorites(result.user);
+        setFavorites(result.favorites);
         setError(result.error);
+        setPremiumRequired(result.premiumRequired);
         setLoading(false);
       })
       .catch(() => {
@@ -125,6 +166,13 @@ export default function FavoritesPage() {
 
   const hasNoFavorites =
     favorites !== null && favorites.buildings.length === 0 && favorites.landlords.length === 0;
+
+  // UX head-start (spec 020 Constraints), same reasoning as
+  // app/landlord/page.tsx: the actual enforcement is always the API route's
+  // requirePremiumTier() check, never this client-reported tier.
+  const showPaywall = premiumRequired || (!authLoading && user !== null && user.tier !== "premium");
+  const currentUrl =
+    typeof window !== "undefined" ? window.location.pathname + window.location.search : "/favorites";
 
   return (
     <div className="min-h-full">
@@ -146,19 +194,23 @@ export default function FavoritesPage() {
           </div>
         )}
 
-        {!loading && error && (
+        {!loading && showPaywall && (
+          <PremiumPaywallCard isSignedIn={user !== null} callbackUrl={currentUrl} />
+        )}
+
+        {!loading && !showPaywall && error && (
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
             {error}
           </div>
         )}
 
-        {!loading && !error && hasNoFavorites && (
+        {!loading && !showPaywall && !error && hasNoFavorites && (
           <p className="text-sm text-slate-500 dark:text-slate-400">
             No saved buildings or landlords yet.
           </p>
         )}
 
-        {!loading && !error && favorites && favorites.buildings.length > 0 && (
+        {!loading && !showPaywall && !error && favorites && favorites.buildings.length > 0 && (
           <section className="mb-8">
             <h2 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">
               Saved buildings ({favorites.buildings.length})
@@ -171,7 +223,7 @@ export default function FavoritesPage() {
           </section>
         )}
 
-        {!loading && !error && favorites && favorites.landlords.length > 0 && (
+        {!loading && !showPaywall && !error && favorites && favorites.landlords.length > 0 && (
           <section>
             <h2 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">
               Saved landlords ({favorites.landlords.length})

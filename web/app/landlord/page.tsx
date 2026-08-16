@@ -43,6 +43,49 @@ function BookmarkIcon({ filled }: { filled: boolean }) {
   );
 }
 
+// Paywall card (spec 020) — rendered in place of profile content whenever
+// the API reports premium_required (or, as a UX head-start, whenever
+// useAuth()'s client-reported tier already indicates free/signed-out before
+// the API call even resolves). useAuth()'s tier is a UI convenience only —
+// the actual enforcement is requirePremiumTier() inside the API route
+// handler; a client that lies about its own tier is still rejected
+// server-side (spec 020 Constraints/Force #1).
+//
+// CTA routing distinction (required, not a UX nicety): signed-out ->
+// /signup?intent=premium (spec 018's page), signed-in-but-free ->
+// /account/upgrade (spec 022's page, referenced but not built here).
+function PremiumPaywallCard({
+  isSignedIn,
+  callbackUrl,
+  buttonLabel,
+}: {
+  isSignedIn: boolean;
+  callbackUrl: string;
+  buttonLabel: string;
+}) {
+  const ctaHref = isSignedIn
+    ? `/account/upgrade?callbackUrl=${encodeURIComponent(callbackUrl)}`
+    : `/signup?intent=premium&callbackUrl=${encodeURIComponent(callbackUrl)}`;
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-700 dark:bg-slate-800">
+      <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+        Landlord profiles are a premium feature
+      </h2>
+      <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+        See every building tied to this owner, portfolio-wide violation totals, and a rating —
+        available on the premium tier.
+      </p>
+      <Link
+        href={ctaHref}
+        className="mt-4 inline-block rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+      >
+        {buttonLabel}
+      </Link>
+    </div>
+  );
+}
+
 // Save/unsave a landlord profile against spec 019's /api/favorites API,
 // same optimistic-toggle/revert-on-failure shape as BuildingCard.tsx's
 // SaveBuildingButton, keyed on type: 'landlord' instead of 'building'.
@@ -118,9 +161,11 @@ function LandlordProfileContent() {
 
   const missingParams = !firstName || !lastName || !officerName;
 
+  const { user, loading: authLoading } = useAuth();
   const [profile, setProfile] = useState<LandlordProfile | null>(null);
   const [loading, setLoading] = useState(!missingParams);
   const [error, setError] = useState<string | null>(null);
+  const [premiumRequired, setPremiumRequired] = useState(false);
 
   useEffect(() => {
     if (!firstName || !lastName || !officerName) return;
@@ -129,8 +174,12 @@ function LandlordProfileContent() {
     if (businessAddress) params.set("businessAddress", businessAddress);
 
     fetch(`/api/landlord?${params.toString()}`)
-      .then((res) => res.json())
-      .then((data) => {
+      .then(async (res) => {
+        const data = await res.json();
+        if (res.status === 401 || res.status === 403) {
+          setPremiumRequired(true);
+          return;
+        }
         if (data.error) throw new Error(data.error);
         setProfile(data.profile);
       })
@@ -138,11 +187,19 @@ function LandlordProfileContent() {
       .finally(() => setLoading(false));
   }, [firstName, lastName, officerName, businessAddress]);
 
+  // UX head-start (spec 020 Constraints): once useAuth() resolves, a
+  // signed-in-but-free-tier user can be shown the paywall immediately
+  // rather than waiting on the API's own 403 — never the actual gate,
+  // which is always the API route's requirePremiumTier() check above.
+  const showPaywall = premiumRequired || (!authLoading && user !== null && user.tier !== "premium");
+  const currentUrl =
+    typeof window !== "undefined" ? window.location.pathname + window.location.search : "/landlord";
+
   return (
     <div className="min-h-full">
-      <header className="border-b border-slate-200 bg-white/90 backdrop-blur">
+      <header className="border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-700 dark:bg-slate-900/90">
         <div className="mx-auto flex max-w-3xl items-center gap-2 px-4 py-3">
-          <Link href="/" className="text-sm font-semibold text-blue-600 hover:underline">
+          <Link href="/" className="text-sm font-semibold text-blue-600 hover:underline dark:text-blue-400">
             ← Back to search
           </Link>
         </div>
@@ -156,13 +213,27 @@ function LandlordProfileContent() {
           </div>
         )}
 
-        {(missingParams || error) && (
+        {!loading && missingParams && (
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {missingParams ? "Missing landlord information" : error}
+            Missing landlord information
           </div>
         )}
 
-        {!loading && !error && profile && (
+        {!loading && !missingParams && showPaywall && (
+          <PremiumPaywallCard
+            isSignedIn={user !== null}
+            callbackUrl={currentUrl}
+            buttonLabel={user !== null ? "Upgrade to Premium" : "Sign up for Landlord Profile"}
+          />
+        )}
+
+        {!loading && !missingParams && !showPaywall && error && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
+        {!loading && !showPaywall && !error && profile && (
           <>
             <h1 className="text-2xl font-bold text-slate-900">{profile.officerName}</h1>
             {profile.businessAddress && (

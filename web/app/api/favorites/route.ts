@@ -1,22 +1,20 @@
 // Favorites API (spec 019) — GET/POST/DELETE a signed-in user's saved
 // buildings/landlord profiles. Single route, `type`-param dispatch (not
-// /api/favorites/buildings + /api/favorites/landlords) to stay under this
+// /api/favorites/buildings + /api/favorites/landlords) to stay under that
 // spec's file cap while covering both resource types.
 //
-// Every handler calls verifySessionCookie() itself — never relies on
-// middleware.ts's presence-only check as the actual boundary. This is the
-// same read-cookie-verify-derive-UID sequence as app/api/auth/me/route.ts
-// and app/api/users/upgrade/route.ts (non-negotiable per this project's
-// context packet: a favorites route that trusted middleware alone would
-// repeat the Phase-12 auth-bypass class of bug already fixed once).
+// Favorites are premium-gated (spec 020): every handler calls
+// requirePremiumTier() — a strict superset of verifySessionCookie()'s
+// pattern (cookie -> cryptographic verify -> derive UID -> DB tier lookup)
+// — never relying on middleware.ts's presence-only check as the actual
+// boundary. Unauthenticated -> 401; authenticated-but-free -> 403
+// { error: 'premium_required' }; premium -> existing behavior unchanged.
 //
 // The verified UID is the only source of "whose favorites" — firebase_uid
 // is never accepted as a client-supplied body/query param, so one user can
 // never read/write another user's favorites by passing an arbitrary UID.
-import { cookies } from 'next/headers';
+import { requirePremiumTier } from '@/lib/requirePremiumTier';
 import { getPool } from '@/lib/pgClient';
-import { verifySessionCookie } from '@/lib/firebaseAdmin';
-import { SESSION_COOKIE_NAME } from '@/app/api/auth/session/route';
 import {
   addFavorite,
   listFavoritesForUser,
@@ -35,33 +33,33 @@ interface FavoriteRequestBody {
   key?: unknown;
 }
 
-// Cryptographic verification happens before any DB call — a missing,
-// tampered, forged, or expired cookie value returns null and the caller
-// responds 401 without ever touching favorites.ts, matching
-// app/api/auth/me/route.ts's pattern exactly.
-async function requireVerifiedFirebaseUid(): Promise<string | null> {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get(SESSION_COOKIE_NAME);
-  if (!sessionCookie || sessionCookie.value.trim().length === 0) {
-    return null;
+// Shared tier-gate response builder — 401 for a logged-out/unverifiable
+// session, 403 { error: 'premium_required' } for a verified-but-free-tier
+// user. Returns null when the caller is authorized to proceed.
+async function requireAuthorizedFirebaseUid(): Promise<{ uid: string } | Response> {
+  const tierResult = await requirePremiumTier();
+  if (!tierResult.authorized) {
+    const status = tierResult.reason === 'unauthenticated' ? 401 : 403;
+    const body =
+      tierResult.reason === 'unauthenticated'
+        ? { authenticated: false }
+        : { error: 'premium_required' };
+    return Response.json(body, { status });
   }
-  try {
-    const decodedSessionCookie = await verifySessionCookie(sessionCookie.value);
-    return decodedSessionCookie.uid;
-  } catch {
-    return null;
-  }
+  return { uid: tierResult.uid };
+}
+
+function isDeniedResponse(value: { uid: string } | Response): value is Response {
+  return value instanceof Response;
 }
 
 export async function GET() {
-  const firebaseUid = await requireVerifiedFirebaseUid();
-  if (!firebaseUid) {
-    return Response.json({ authenticated: false }, { status: 401 });
-  }
+  const authResult = await requireAuthorizedFirebaseUid();
+  if (isDeniedResponse(authResult)) return authResult;
 
   try {
     const pool = getPool();
-    const favorites = await listFavoritesForUser(pool, firebaseUid);
+    const favorites = await listFavoritesForUser(pool, authResult.uid);
     return Response.json(favorites, { status: 200 });
   } catch {
     return Response.json({ error: 'Internal server error' }, { status: 500 });
@@ -69,10 +67,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const firebaseUid = await requireVerifiedFirebaseUid();
-  if (!firebaseUid) {
-    return Response.json({ authenticated: false }, { status: 401 });
-  }
+  const authResult = await requireAuthorizedFirebaseUid();
+  if (isDeniedResponse(authResult)) return authResult;
 
   let body: FavoriteRequestBody;
   try {
@@ -89,7 +85,7 @@ export async function POST(request: Request) {
 
   try {
     const pool = getPool();
-    await addFavorite(pool, firebaseUid, body.type, body.key);
+    await addFavorite(pool, authResult.uid, body.type, body.key);
     return Response.json({ ok: true }, { status: 200 });
   } catch {
     return Response.json({ error: 'Internal server error' }, { status: 500 });
@@ -97,10 +93,8 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const firebaseUid = await requireVerifiedFirebaseUid();
-  if (!firebaseUid) {
-    return Response.json({ authenticated: false }, { status: 401 });
-  }
+  const authResult = await requireAuthorizedFirebaseUid();
+  if (isDeniedResponse(authResult)) return authResult;
 
   let body: FavoriteRequestBody;
   try {
@@ -115,7 +109,7 @@ export async function DELETE(request: Request) {
 
   try {
     const pool = getPool();
-    await removeFavorite(pool, firebaseUid, body.type, body.key);
+    await removeFavorite(pool, authResult.uid, body.type, body.key);
     return Response.json({ ok: true }, { status: 200 });
   } catch {
     return Response.json({ error: 'Internal server error' }, { status: 500 });

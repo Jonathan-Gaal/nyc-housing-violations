@@ -30,6 +30,8 @@
     "uuid": "^11.1.1"
   },
   "dependencies": {
+    "@stripe/react-stripe-js": "^6.8.1",
+    "@stripe/stripe-js": "^9.13.0",
     "better-sqlite3": "^13.0.2",
     "chart.js": "^4.5.1",
     "csv-parse": "^7.0.2",

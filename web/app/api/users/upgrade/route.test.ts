@@ -4,11 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // cookie, or a cookie that fails verifySessionCookie(), is rejected 401 and
 // never calls the Stripe client — proving this route enforces its own
 // identity check rather than relying on middleware.ts's presence-only gate
-// (spec 016 Amendment note, [FORCES] #5). Not listed in spec 016's own
-// Files section (which is at its 5-file cap), but required by that same
-// spec's Verification Oracle/Test Constraints sections, which explicitly
-// call for this companion test — flagged here and in the completion
-// report rather than silently adding or silently skipping it.
+// (spec 016 Amendment note, [FORCES] #5). Extended in place per spec 022 for
+// the in-app subscription/PaymentIntent flow: asserts { clientSecret }
+// response shape (not { checkoutUrl }) with the correct subscriptions.create
+// call args, and that no UPDATE users SET tier query ever fires — proving
+// the webhook-as-source-of-truth invariant survived this spec's rewrite of
+// the route's success-path body.
 
 function mockCookieStore(cookieValue: string | undefined) {
   vi.doMock('next/headers', () => ({
@@ -16,19 +17,33 @@ function mockCookieStore(cookieValue: string | undefined) {
       get: (name: string) =>
         name === 'session' && cookieValue !== undefined ? { name, value: cookieValue } : undefined,
     }),
-    headers: vi.fn().mockResolvedValue(new Headers({ origin: 'http://localhost:3000' })),
   }));
 }
 
 function mockStripeClient() {
   const customersCreateMock = vi.fn();
-  const checkoutSessionsCreateMock = vi.fn();
+  const productsRetrieveMock = vi.fn().mockResolvedValue({ id: 'homecheck-nyc-premium-tier' });
+  const productsCreateMock = vi.fn().mockResolvedValue({ id: 'homecheck-nyc-premium-tier' });
+  const subscriptionsCreateMock = vi.fn();
   const getStripeClientMock = vi.fn().mockReturnValue({
     customers: { create: customersCreateMock },
-    checkout: { sessions: { create: checkoutSessionsCreateMock } },
+    products: { retrieve: productsRetrieveMock, create: productsCreateMock },
+    subscriptions: { create: subscriptionsCreateMock },
   });
   vi.doMock('@/lib/stripe', () => ({ getStripeClient: getStripeClientMock }));
-  return { getStripeClientMock, customersCreateMock, checkoutSessionsCreateMock };
+  return { getStripeClientMock, customersCreateMock, productsRetrieveMock, productsCreateMock, subscriptionsCreateMock };
+}
+
+// Matches subscriptions.create's expand: ['latest_invoice.payment_intent']
+// shape — an already-expanded Invoice with an already-expanded PaymentIntent.
+function buildSubscriptionResponse(clientSecret: string) {
+  return {
+    id: 'sub_test_123',
+    latest_invoice: {
+      id: 'in_test_123',
+      payment_intent: { id: 'pi_test_123', client_secret: clientSecret },
+    },
+  };
 }
 
 describe('POST /api/users/upgrade', () => {
@@ -126,14 +141,14 @@ describe('POST /api/users/upgrade', () => {
     expect(getStripeClientMock).not.toHaveBeenCalled();
   });
 
-  it('on a genuinely valid session cookie, verifies identity first, then creates a Stripe Checkout session and returns its URL (never writing tier itself)', async () => {
+  it('on a genuinely valid session cookie, verifies identity first, then creates an in-app subscription and returns { clientSecret } (never { checkoutUrl }, never writing tier itself)', async () => {
     const verifySessionCookieMock = vi.fn().mockResolvedValue({ uid: 'renter-uid-1' });
     const queryMock = vi.fn().mockResolvedValue({
       rows: [{ firebase_uid: 'renter-uid-1', email: 'renter@example.com', stripe_customer_id: 'cus_existing' }],
     });
     const getPoolMock = vi.fn().mockReturnValue({ query: queryMock });
-    const { getStripeClientMock, customersCreateMock, checkoutSessionsCreateMock } = mockStripeClient();
-    checkoutSessionsCreateMock.mockResolvedValue({ url: 'https://checkout.stripe.com/test-session' });
+    const { getStripeClientMock, customersCreateMock, subscriptionsCreateMock } = mockStripeClient();
+    subscriptionsCreateMock.mockResolvedValue(buildSubscriptionResponse('pi_test_123_secret_abc'));
 
     mockCookieStore('valid-signed-session-cookie');
     vi.doMock('@/lib/firebaseAdmin', () => ({ verifySessionCookie: verifySessionCookieMock }));
@@ -144,52 +159,45 @@ describe('POST /api/users/upgrade', () => {
 
     expect(verifySessionCookieMock).toHaveBeenCalledWith('valid-signed-session-cookie');
     expect(response.status).toBe(200);
-    const body = (await response.json()) as { checkoutUrl: string };
-    expect(body).toEqual({ checkoutUrl: 'https://checkout.stripe.com/test-session' });
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body).toEqual({ clientSecret: 'pi_test_123_secret_abc' });
+    expect(body.checkoutUrl).toBeUndefined();
 
     expect(getStripeClientMock).toHaveBeenCalled();
     // Existing stripe_customer_id is reused rather than creating a new one.
     expect(customersCreateMock).not.toHaveBeenCalled();
-    expect(checkoutSessionsCreateMock).toHaveBeenCalledTimes(1);
-    const [checkoutSessionParams] = checkoutSessionsCreateMock.mock.calls[0] as [
-      { customer: string; client_reference_id: string; mode: string },
+    expect(subscriptionsCreateMock).toHaveBeenCalledTimes(1);
+    const [subscriptionParams] = subscriptionsCreateMock.mock.calls[0] as [
+      {
+        customer: string;
+        payment_behavior: string;
+        expand: string[];
+        metadata?: Record<string, string>;
+      },
     ];
-    expect(checkoutSessionParams.customer).toBe('cus_existing');
-    expect(checkoutSessionParams.client_reference_id).toBe('renter-uid-1');
-    expect(checkoutSessionParams.mode).toBe('subscription');
+    expect(subscriptionParams.customer).toBe('cus_existing');
+    expect(subscriptionParams.payment_behavior).toBe('default_incomplete');
+    expect(subscriptionParams.expand).toEqual(['latest_invoice.payment_intent']);
+    expect(subscriptionParams.metadata).toEqual({ firebase_uid: 'renter-uid-1' });
 
-    // The route never writes tier itself — only two queries ever run:
-    // the initial user lookup. No UPDATE ... SET tier appears anywhere.
+    // The route never writes tier itself — only the initial user-lookup
+    // query runs. No UPDATE ... SET tier appears anywhere, proving the
+    // webhook-as-source-of-truth invariant survived this route's rewrite.
     for (const call of queryMock.mock.calls) {
       const [sqlText] = call as [string, unknown[]];
       expect(sqlText).not.toMatch(/tier\s*=\s*'premium'/i);
     }
   });
 
-  // Regression test for a real, already-shipped defect (found post-commit
-  // by soundwave's risk assessment): Stripe does NOT automatically copy a
-  // Checkout Session's top-level `metadata` onto the Subscription object it
-  // creates for `mode: 'subscription'` sessions — that only happens if
-  // `subscription_data.metadata` is explicitly passed at session-creation
-  // time. Without it, webhooks/stripe/route.ts's handleSubscriptionDeleted()
-  // (which reads subscription.metadata.firebase_uid exclusively, with no
-  // client_reference_id fallback) can never resolve a firebase_uid on
-  // `customer.subscription.deleted`, so tier never reverts to 'free' on
-  // cancellation — a silent, permanent premium-access leak. This test
-  // exercises the actual Checkout Session creation call directly (unlike
-  // the webhook route's own tests, which hand-construct payloads with
-  // metadata.firebase_uid already populated and so never caught this) and
-  // would have failed against the pre-fix code, where `subscription_data`
-  // was never passed to `stripe.checkout.sessions.create(...)` at all.
-  it('sets subscription_data.metadata.firebase_uid on the Checkout Session so the Subscription object itself carries firebase_uid (required for customer.subscription.deleted webhooks to resolve the user)', async () => {
+  it('sets metadata.firebase_uid directly on the Subscription object (required for customer.subscription.deleted webhooks to resolve the user)', async () => {
     const verifiedFirebaseUid = 'renter-uid-1';
     const verifySessionCookieMock = vi.fn().mockResolvedValue({ uid: verifiedFirebaseUid });
     const queryMock = vi.fn().mockResolvedValue({
       rows: [{ firebase_uid: verifiedFirebaseUid, email: 'renter@example.com', stripe_customer_id: 'cus_existing' }],
     });
     const getPoolMock = vi.fn().mockReturnValue({ query: queryMock });
-    const { checkoutSessionsCreateMock } = mockStripeClient();
-    checkoutSessionsCreateMock.mockResolvedValue({ url: 'https://checkout.stripe.com/test-session' });
+    const { subscriptionsCreateMock } = mockStripeClient();
+    subscriptionsCreateMock.mockResolvedValue(buildSubscriptionResponse('pi_test_456_secret_def'));
 
     mockCookieStore('valid-signed-session-cookie');
     vi.doMock('@/lib/firebaseAdmin', () => ({ verifySessionCookie: verifySessionCookieMock }));
@@ -199,11 +207,31 @@ describe('POST /api/users/upgrade', () => {
     const response = await POST();
 
     expect(response.status).toBe(200);
-    expect(checkoutSessionsCreateMock).toHaveBeenCalledTimes(1);
-    const [checkoutSessionParams] = checkoutSessionsCreateMock.mock.calls[0] as [
-      { subscription_data?: { metadata?: Record<string, string> } },
-    ];
-    expect(checkoutSessionParams.subscription_data).toBeDefined();
-    expect(checkoutSessionParams.subscription_data?.metadata).toEqual({ firebase_uid: verifiedFirebaseUid });
+    expect(subscriptionsCreateMock).toHaveBeenCalledTimes(1);
+    const [subscriptionParams] = subscriptionsCreateMock.mock.calls[0] as [{ metadata?: Record<string, string> }];
+    expect(subscriptionParams.metadata).toEqual({ firebase_uid: verifiedFirebaseUid });
+  });
+
+  it('returns 500 if Stripe returns a subscription with no resolvable PaymentIntent client secret, without ever writing tier', async () => {
+    const verifySessionCookieMock = vi.fn().mockResolvedValue({ uid: 'renter-uid-1' });
+    const queryMock = vi.fn().mockResolvedValue({
+      rows: [{ firebase_uid: 'renter-uid-1', email: 'renter@example.com', stripe_customer_id: 'cus_existing' }],
+    });
+    const getPoolMock = vi.fn().mockReturnValue({ query: queryMock });
+    const { subscriptionsCreateMock } = mockStripeClient();
+    subscriptionsCreateMock.mockResolvedValue({ id: 'sub_test_broken', latest_invoice: null });
+
+    mockCookieStore('valid-signed-session-cookie');
+    vi.doMock('@/lib/firebaseAdmin', () => ({ verifySessionCookie: verifySessionCookieMock }));
+    vi.doMock('@/lib/pgClient', () => ({ getPool: getPoolMock }));
+
+    const { POST } = await import('./route');
+    const response = await POST();
+
+    expect(response.status).toBe(500);
+    for (const call of queryMock.mock.calls) {
+      const [sqlText] = call as [string, unknown[]];
+      expect(sqlText).not.toMatch(/tier\s*=\s*'premium'/i);
+    }
   });
 });

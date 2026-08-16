@@ -2,6 +2,26 @@
 
 Episodic, in-flight ledger. Append-only, newest entry first, ~10 lines per session. Never re-summarize or restructure old entries — fold this edit into the code commit it describes. Durable facts belong in a spec (`specs/`) or the wiki (`.claude/wiki/project-nyc-open-data-project/`), not here.
 
+## [2026-08-16] build | Spec 023 built and committed, closing the 018-023 batch (`web/`)
+
+- Shipped: `web/app/api/webhooks/stripe/route.ts` now listens for `customer.subscription.created`/`.updated` (status-gated on `'active'`) instead of the dead `checkout.session.completed` — without this, spec 022's in-app payment flow would confirm in Stripe but never actually grant `tier='premium'` in this app's own DB. Commit `84f5f96`.
+- Verified (no edit needed) spec 018's `/signup?intent=premium` redirect to `/account/upgrade?callbackUrl=...` is already correct as shipped; added e2e coverage proving no inline payment UI and no `POST /api/users/upgrade` call ever fires from the signup page itself.
+- Final status across all six specs (018-023): `npm run build`/`type-check`/`lint`/`audit` clean, 151 unit tests passed / 15 correctly `test.skip`-marked pending live Firebase/Stripe/Supabase credentials, 27 Playwright tests (14 passed / 13 correctly credential-gated skips), `git status --porcelain -- web/` clean.
+- Next: ratchet's Mode 2 review across the full batch. Nothing else deferred beyond the live-credential-blocked assertions already itemized per spec.
+
+## [2026-08-16] build | Specs 021, 020, 022 built and committed after coordinator corrected the dispatch order (`web/`)
+
+- Coordinator confirmed the prior entry's blocking-ambiguity finding was correct and re-dispatched in the order this session had itself recommended: 018→019→**021→020**→022. Shipped spec 021 (`/favorites` page + save/unsave buttons on `BuildingCard`/landlord page) — commit `cbdf11d`. Spec 020 (`requirePremiumTier()` gating `/api/landlord` + `/api/favorites`, paywall UI on both pages) — commit `b7f4d87`. Spec 022 (in-app Stripe Payment Element replacing Checkout redirect, `/account/upgrade` page, `@stripe/stripe-js`/`@stripe/react-stripe-js` — the only two deps authorized) — commit `aeb48b4`.
+- All 5 specs (018-022) now green: `npm run build`/`type-check`/`lint`/`test`/`audit` clean, 149 unit tests passed / 15 correctly `test.skip`-marked pending live Firebase/Stripe/Supabase credentials, 0 vulnerabilities.
+- Found and resolved one real API-shape gap in spec 022 (not escalated — within-scope fix, logged in wiki `log.md`): Stripe Subscription creation's `price_data` has no inline `product_data` escape hatch the way Checkout Session's does; added a `findOrCreatePremiumProductId()` helper using a fixed caller-supplied Product ID rather than Stripe's eventually-consistent Search API.
+- Next: spec 023 (webhook correction + signup `intent=premium` payment wiring) remains out of scope for this dispatch, untouched. Ratchet's Mode 2 review is the next step.
+
+## [2026-08-16] build | Specs 018-019 built and committed; halted before spec 020 on a dispatch-order/dependency conflict (`web/`)
+
+- Shipped: spec 018 (split `/login`/`/signup`, confirm-password, show/hide toggle, slate/dark restyle, `intent=premium` redirect contract) — commit `61aac4f`. Spec 019 (favorites schema/query-lib/API, session-verified GET/POST/DELETE) — commit `ec85e68`. Both green: build/type-check/lint/unit tests/e2e (provable portions) all pass; live-Firebase-credential-gated e2e assertions correctly `test.skip`-marked, not silently omitted.
+- Blocked: spec 020 (premium gating) explicitly depends on spec 021 (its own Objective line: "Depends on spec 019 and spec 021") and its Files list requires editing `web/app/favorites/page.tsx` — spec 021's own new-file output, which doesn't exist yet under the dispatched build order 018→019→**020**→021→022. Full detail + recommendation in wiki `log.md` (2026-08-16 blocking-ambiguity entry). Did not guess/reorder unilaterally.
+- Next: Orchestrator/shockwave decides — either reorder to 018→019→021→020→022, or split spec 020's favorites-page paywall edit into a micro-spec that runs after 021. Resume wheeljack once that's resolved; spec 020's landlord-page/route portions have no such blocker and could ship first if that's preferred instead.
+
 ## [2026-08-11] build | Implemented spec 001's composite scoring (`web/`)
 
 - Shipped: `lib/rating.ts` (old 3-factor formula) replaced with `lib/scoring.ts` implementing spec 001's composite algorithm (totalViolations, rentImpairing, avgYearsOpen, percentDeadEnd, percentReissued) — spec 001 had been written but never built; the shipped app was still running the pre-spec formula. `csvLoader.ts` now tracks dead-end status and nov_type/description reissuance per building; `buildings` table gained `percent_dead_end`, `percent_reissued`, `recurring_issue_count` columns; API response gained `scoringBreakdown` + `recurringIssueCount` per spec's `Building` shape.

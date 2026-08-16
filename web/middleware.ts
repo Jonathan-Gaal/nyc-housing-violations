@@ -38,7 +38,13 @@ const SESSION_COOKIE_NAME = 'session';
 // /login and /signup (spec 018) are deliberately NOT in this list — both
 // are public, unauthenticated-entry pages by design (a signed-in-only gate
 // on the sign-in page itself would be nonsensical). Do not add them here.
-const PROTECTED_PATHS = ['/dashboard', '/account'];
+//
+// /favorites (spec 019) added here even though its own page doesn't exist
+// until spec 021 — the API route this spec builds (app/api/favorites)
+// enforces its own verifySessionCookie() check regardless (the real
+// boundary, per this file's SECURITY BOUNDARY NOTE above), so adding the
+// page path here now means spec 021 doesn't need to touch this file.
+const PROTECTED_PATHS = ['/dashboard', '/account', '/favorites'];
 
 function isProtectedPath(pathname: string): boolean {
   return PROTECTED_PATHS.some((protectedPath) => pathname.startsWith(protectedPath));
@@ -62,5 +68,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/account/:path*'],
+  matcher: ['/dashboard/:path*', '/account/:path*', '/favorites/:path*'],
 };

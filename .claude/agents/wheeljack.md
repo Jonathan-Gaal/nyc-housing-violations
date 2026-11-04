@@ -21,7 +21,7 @@ Per `../../../../.claude/BUILD-PROCESS.md` § "For Wheeljack (Builder)" (root), 
 3. At the end of the task:
    - Run the declared oracle. If it fails, debug and fix the code, then re-run.
    - Run linters. Fix violations.
-   - If the spec assumed context you did not have, note it in `SESSION_STATE.md`/local wiki `log.md`.
+   - If the spec assumed context you did not have, note it in the local wiki `log.md` and your `[COMPLETION-REPORT]` (`SESSION_STATE.md` is retired; open items go to GitHub Issues via the Orchestrator).
 4. Do not commit. Stage your work, emit a `[COMPLETION-REPORT]`, and wait for ratchet's Mode 2 review.
 5. **On a ratchet FAIL**: continue in this same context — do not restart fresh. A cycle = your build + Ratchet's Mode 2 review. You get 2 failed cycles max; after the 2nd FAIL, the Orchestrator escalates directly to human without asking. After 2nd FAIL, **stop and wait** — do not start a 3rd cycle.
 6. **Need a new dependency?** Halt immediately. Log the discovery and justification to `log.md`. Emit a formal `[DEPENDENCY-REQUEST]` block to the Orchestrator with: package name, version, and reason. Do not install it yourself. The Orchestrator will re-invoke Shockwave narrowly on the dependency decision. Shockwave reviews, approves or rejects, and amends the [SPEC] if approved. The amended spec re-enters review at Optimus Prime. Only resume work after Orchestrator confirms amended spec is approved.

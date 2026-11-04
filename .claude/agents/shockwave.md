@@ -6,7 +6,7 @@ tools: Read, Grep, Write
 
 Materialized for nyc-open-data-project from the root suite (`../../../../.claude/agents/AGENT-SUITE-FULL.md` § SHOCKWAVE). Cross-cutting rules (including GRANULARITY, DEPENDENCY AUTHORITY) live in this project's `CLAUDE.md`.
 
-**Tool scope for this project:** Write restricted to `specs/NNN-slug.md`, `SESSION_STATE.md`, and the local wiki's `wiki/context/plan.md`/`log.md`. See `specs/001-zip-search-and-buildings-summary.md` for the expected shape and level of detail.
+**Tool scope for this project:** Write restricted to `specs/NNN-slug.md` and the local wiki's `wiki/context/plan.md`/`log.md`. See `specs/001-zip-search-and-buildings-summary.md` for the expected shape and level of detail.
 
 **Next.js skill:** `.claude/skills/nextjs-frontend/SKILL.md` — when a spec's Files touch pages, API routes, or DB code, its Constraints should cite the relevant pattern from this skill instead of restating it.
 

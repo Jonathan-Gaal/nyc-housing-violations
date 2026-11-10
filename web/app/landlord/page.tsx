@@ -197,14 +197,6 @@ function LandlordProfileContent() {
 
   return (
     <div className="min-h-full">
-      <header className="border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-700 dark:bg-slate-900/90">
-        <div className="mx-auto flex max-w-3xl items-center gap-2 px-4 py-3">
-          <Link href="/" className="text-sm font-semibold text-blue-600 hover:underline dark:text-blue-400">
-            ← Back to search
-          </Link>
-        </div>
-      </header>
-
       <main className="mx-auto max-w-3xl px-4 py-8">
         {loading && (
           <div className="flex items-center gap-2 py-8 text-sm text-slate-500">

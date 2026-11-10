@@ -119,3 +119,19 @@ export async function POST(request: Request) {
     { status: 200, headers: { 'Set-Cookie': setCookieHeader } }
   );
 }
+
+// Sign out: expires the HttpOnly session cookie (client JS can't clear it
+// itself). Same attributes as the POST above so the browser matches and
+// replaces that exact cookie. Idempotent — safe to call when signed out.
+export async function DELETE() {
+  const clearCookieHeader = [
+    `${SESSION_COOKIE_NAME}=`,
+    'Path=/',
+    'Max-Age=0',
+    'HttpOnly',
+    'Secure',
+    'SameSite=Strict',
+  ].join('; ');
+
+  return new Response(null, { status: 204, headers: { 'Set-Cookie': clearCookieHeader } });
+}

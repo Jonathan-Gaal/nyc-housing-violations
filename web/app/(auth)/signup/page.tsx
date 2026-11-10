@@ -8,6 +8,7 @@
 import { Suspense, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { DEMO_ACCOUNT } from '@/lib/demoAccount';
 import { initializeApp, getApps, type FirebaseOptions } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 
@@ -191,6 +192,14 @@ function SignupForm() {
 
   return (
     <>
+      {DEMO_ACCOUNT && (
+        <p className="mb-4 rounded border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-200">
+          Just looking around?{' '}
+          <Link href={buildLoginLinkHref()} className="font-semibold underline hover:no-underline">
+            Use the demo premium account
+          </Link>
+        </p>
+      )}
       <form onSubmit={handleEmailPasswordSubmit} className="flex flex-col gap-4">
         <label htmlFor="signup-email" className="flex flex-col gap-1 text-sm text-slate-700 dark:text-slate-300">
           Email

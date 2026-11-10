@@ -7,6 +7,7 @@
 
 import { Suspense, useState, type FormEvent } from 'react';
 import Link from 'next/link';
+import { DEMO_ACCOUNT } from '@/lib/demoAccount';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { initializeApp, getApps, type FirebaseOptions } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
@@ -105,8 +106,8 @@ function PasswordField({
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState(DEMO_ACCOUNT?.email ?? '');
+  const [password, setPassword] = useState(DEMO_ACCOUNT?.password ?? '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showSignupLink, setShowSignupLink] = useState(false);
@@ -175,6 +176,11 @@ function LoginForm() {
 
   return (
     <>
+      {DEMO_ACCOUNT && (
+        <p className="mb-4 rounded border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-200">
+          Demo premium account pre-filled — just click Sign in.
+        </p>
+      )}
       <form onSubmit={handleEmailPasswordSubmit} className="flex flex-col gap-4">
         <label htmlFor="login-email" className="flex flex-col gap-1 text-sm text-slate-700 dark:text-slate-300">
           Email

@@ -7,6 +7,7 @@ import AllBuildingsBrowser from "@/components/AllBuildingsBrowser";
 import AddressSearchResults from "@/components/AddressSearchResults";
 import SkylineBackdrop from "@/components/SkylineBackdrop";
 import ThemeToggle from "@/components/ThemeToggle";
+import HeaderAuth from "@/components/HeaderAuth";
 import type { AddressSearchResult, BuildingRow, ZipSummary, HeatmapPoint } from "@/lib/queries";
 import type { MapFocusPoint } from "@/components/MapView";
 import { neighborhoodForZip } from "@/lib/zipNeighborhoods";
@@ -177,13 +178,15 @@ export default function Home() {
       <header className="sticky top-0 z-[1100] border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-700 dark:bg-slate-900/90">
         <div className="mx-auto flex max-w-3xl items-center gap-2 px-4 py-2.5">
           <HouseMarkIcon />
-          <span className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
+          <span className="whitespace-nowrap text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
             Open Violation NYC
           </span>
-          <span className="ml-auto hidden text-xs text-slate-400 dark:text-slate-500 sm:block">
-            Data: NYC Dept. of Housing Preservation &amp; Development
-          </span>
-          <ThemeToggle />
+          {/* Data-source credit lives in the page footer; the header right side
+              is reserved for account controls so nothing wraps. */}
+          <div className="ml-auto flex items-center gap-2 whitespace-nowrap">
+            <HeaderAuth />
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 

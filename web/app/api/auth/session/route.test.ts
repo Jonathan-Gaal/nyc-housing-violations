@@ -304,3 +304,34 @@ describe('GET /api/auth/me — forged/tampered session cookie rejection', () => 
     expect(body).toEqual({ uid: 'test-firebase-uid', email: 'renter@example.com', tier: 'free' });
   });
 });
+
+describe('DELETE /api/auth/session', () => {
+  beforeEach(() => {
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    vi.doUnmock('@/lib/pgClient');
+    vi.doUnmock('@/lib/firebaseAdmin');
+  });
+
+  it('expires the session cookie with the same attributes it was set with, without touching Firebase or the DB', async () => {
+    const createSessionCookieMock = vi.fn();
+    const getPoolMock = vi.fn();
+    vi.doMock('@/lib/firebaseAdmin', () => ({
+      verifyIdToken: vi.fn(),
+      createSessionCookie: createSessionCookieMock,
+    }));
+    vi.doMock('@/lib/pgClient', () => ({ getPool: getPoolMock }));
+
+    const { DELETE } = await import('./route');
+    const response = await DELETE();
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get('Set-Cookie')).toBe(
+      'session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict'
+    );
+    expect(createSessionCookieMock).not.toHaveBeenCalled();
+    expect(getPoolMock).not.toHaveBeenCalled();
+  });
+});

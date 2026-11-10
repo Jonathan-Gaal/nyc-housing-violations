@@ -176,14 +176,6 @@ export default function FavoritesPage() {
 
   return (
     <div className="min-h-full">
-      <header className="border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-700 dark:bg-slate-900/90">
-        <div className="mx-auto flex max-w-3xl items-center gap-2 px-4 py-3">
-          <Link href="/" className="text-sm font-semibold text-blue-600 hover:underline dark:text-blue-400">
-            ← Back to search
-          </Link>
-        </div>
-      </header>
-
       <main className="mx-auto max-w-3xl px-4 py-8">
         <h1 className="mb-6 text-2xl font-bold text-slate-900 dark:text-slate-100">My favorites</h1>
 

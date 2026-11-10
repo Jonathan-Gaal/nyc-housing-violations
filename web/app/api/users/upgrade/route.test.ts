@@ -34,14 +34,16 @@ function mockStripeClient() {
   return { getStripeClientMock, customersCreateMock, productsRetrieveMock, productsCreateMock, subscriptionsCreateMock };
 }
 
-// Matches subscriptions.create's expand: ['latest_invoice.payment_intent']
-// shape — an already-expanded Invoice with an already-expanded PaymentIntent.
+// Matches subscriptions.create's expand: ['latest_invoice.confirmation_secret']
+// shape on the SDK's pinned API version (2026-07-29.dahlia), where
+// Invoice.payment_intent no longer exists and the first payment's client
+// secret is only exposed via the expandable Invoice.confirmation_secret.
 function buildSubscriptionResponse(clientSecret: string) {
   return {
     id: 'sub_test_123',
     latest_invoice: {
       id: 'in_test_123',
-      payment_intent: { id: 'pi_test_123', client_secret: clientSecret },
+      confirmation_secret: { client_secret: clientSecret, type: 'payment_intent' },
     },
   };
 }
@@ -177,7 +179,7 @@ describe('POST /api/users/upgrade', () => {
     ];
     expect(subscriptionParams.customer).toBe('cus_existing');
     expect(subscriptionParams.payment_behavior).toBe('default_incomplete');
-    expect(subscriptionParams.expand).toEqual(['latest_invoice.payment_intent']);
+    expect(subscriptionParams.expand).toEqual(['latest_invoice.confirmation_secret']);
     expect(subscriptionParams.metadata).toEqual({ firebase_uid: 'renter-uid-1' });
 
     // The route never writes tier itself — only the initial user-lookup

@@ -174,16 +174,16 @@ export async function POST() {
         },
       ],
       payment_behavior: 'default_incomplete',
-      expand: ['latest_invoice.payment_intent'],
+      // The SDK's pinned API version (2026-07-29.dahlia) no longer has
+      // Invoice.payment_intent; the first payment's client secret is only
+      // exposed via the expandable Invoice.confirmation_secret.
+      expand: ['latest_invoice.confirmation_secret'],
       metadata: { firebase_uid: userRow.firebase_uid },
     });
 
-    const latestInvoice = subscription.latest_invoice as Stripe.Invoice & {
-      payment_intent?: Stripe.PaymentIntent | string | null;
-    };
-    const paymentIntent =
-      typeof latestInvoice?.payment_intent === 'object' ? latestInvoice.payment_intent : null;
-    const clientSecret = paymentIntent?.client_secret;
+    const latestInvoice =
+      typeof subscription.latest_invoice === 'object' ? subscription.latest_invoice : null;
+    const clientSecret = latestInvoice?.confirmation_secret?.client_secret;
 
     if (!clientSecret) {
       return Response.json({ error: 'Internal server error' }, { status: 500 });
